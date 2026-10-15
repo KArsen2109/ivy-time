@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -255,13 +256,14 @@ fun SettingRow(
     subtitle: String?,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    horizontalPadding: Dp = Spacing.Gutter,
     trailing: @Composable (RowScope.() -> Unit)? = null,
 ) {
     Row(
         modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = Spacing.Gutter, vertical = 14.dp),
+            .padding(horizontal = horizontalPadding, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -319,5 +321,58 @@ fun StatPair(label: String, value: String, color: Color, modifier: Modifier = Mo
             fontWeight = FontWeight.Bold,
         )
         Text(label, style = MaterialTheme.typography.labelSmall, color = IvyTheme.extra.slate)
+    }
+}
+
+/** A square-ish tile that opens a collection and previews what is inside it. */
+@Composable
+fun CountTile(
+    count: String,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    preview: @Composable (() -> Unit)? = null,
+) {
+    Column(
+        modifier
+            .clip(IvyShapes.Card)
+            .background(IvyTheme.extra.raised)
+            .border(1.dp, IvyTheme.extra.line, IvyShapes.Card)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Text(count, style = MaterialTheme.typography.headlineSmall)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = IvyTheme.extra.slate)
+        preview?.invoke()
+    }
+}
+
+/** A short row of category colours, used as a tile's preview. */
+@Composable
+fun DotStrip(colors: List<Color>, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        colors.forEach { ColorDot(it, size = 9.dp) }
+    }
+}
+
+@Composable
+fun IvySwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val track = if (checked) MaterialTheme.colorScheme.primary else IvyTheme.extra.line
+    Box(
+        modifier
+            .size(width = 46.dp, height = 28.dp)
+            .clip(IvyShapes.Pill)
+            .background(track)
+            .clickable { onCheckedChange(!checked) },
+        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+    ) {
+        Box(
+            Modifier
+                .padding(horizontal = 3.dp)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
     }
 }

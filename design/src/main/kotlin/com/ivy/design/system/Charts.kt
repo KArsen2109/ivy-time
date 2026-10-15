@@ -131,3 +131,40 @@ fun LegendRow(color: Color, label: String, value: String, modifier: Modifier = M
         )
     }
 }
+
+/**
+ * The ring behind the running clock. It fills once an hour, so a glance says
+ * roughly how long the current stretch has been going without reading the digits.
+ */
+@Composable
+fun ProgressRing(
+    fraction: Float,
+    color: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 196.dp,
+    thickness: Dp = 7.dp,
+    content: @Composable () -> Unit,
+) {
+    val track = IvyTheme.extra.line
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = thickness.toPx(), cap = StrokeCap.Round)
+            val inset = thickness.toPx() / 2
+            val arcSize = Size(this.size.width - inset * 2, this.size.height - inset * 2)
+            val topLeft = Offset(inset, inset)
+            drawArc(track, 0f, 360f, false, topLeft, arcSize, style = stroke)
+            if (fraction > 0f) {
+                drawArc(
+                    color = color,
+                    startAngle = -90f,
+                    sweepAngle = 360f * fraction.coerceIn(0f, 1f),
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = stroke,
+                )
+            }
+        }
+        content()
+    }
+}

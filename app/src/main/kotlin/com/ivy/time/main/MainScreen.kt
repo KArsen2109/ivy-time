@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarViewWeek
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,11 +34,12 @@ import com.ivy.time.more.MoreScreen
 import com.ivy.time.plan.PlanEditorScreen
 import com.ivy.time.projects.ProjectsScreen
 import com.ivy.time.reports.ReportsScreen
-import com.ivy.time.settings.SettingsScreen
+import com.ivy.time.timer.TimerScreen
 import com.ivy.time.week.WeekScreen
 import java.time.LocalDate
 
 private object Routes {
+    const val TIMER = "timer"
     const val DAY = "day"
     const val WEEK = "week"
     const val REPORTS = "reports"
@@ -45,7 +47,6 @@ private object Routes {
     const val CATEGORIES = "categories"
     const val PROJECTS = "projects"
     const val GOALS = "goals"
-    const val SETTINGS = "settings"
     const val ENTRY = "entry/{entryId}?date={date}"
     const val PLAN = "plan/{planId}?date={date}&minutes={minutes}"
 
@@ -57,6 +58,7 @@ private object Routes {
 }
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
+    Timer(Routes.TIMER, "Timer", Icons.Rounded.Timer),
     Day(Routes.DAY, "Day", Icons.Rounded.Today),
     Week(Routes.WEEK, "Week", Icons.Rounded.CalendarViewWeek),
     Reports(Routes.REPORTS, "Reports", Icons.Rounded.BarChart),
@@ -101,6 +103,9 @@ fun MainScreen(selectedDay: SelectedDay) {
             startDestination = Routes.DAY,
             modifier = Modifier.padding(padding),
         ) {
+            composable(Routes.TIMER) {
+                TimerScreen(onEditRecord = { navController.navigate(Routes.entry(it)) })
+            }
             composable(Routes.DAY) {
                 DayScreen(
                     onPlanAt = { date, minutes ->
@@ -125,13 +130,11 @@ fun MainScreen(selectedDay: SelectedDay) {
                     onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
                     onOpenProjects = { navController.navigate(Routes.PROJECTS) },
                     onOpenGoals = { navController.navigate(Routes.GOALS) },
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 )
             }
             composable(Routes.CATEGORIES) { CategoriesScreen() }
             composable(Routes.PROJECTS) { ProjectsScreen() }
             composable(Routes.GOALS) { GoalsScreen() }
-            composable(Routes.SETTINGS) { SettingsScreen() }
             composable(Routes.ENTRY) { EntryScreen(onClose = { navController.popBackStack() }) }
             composable(Routes.PLAN) { PlanEditorScreen(onClose = { navController.popBackStack() }) }
         }
