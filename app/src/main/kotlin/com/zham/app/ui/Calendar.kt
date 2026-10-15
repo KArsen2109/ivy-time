@@ -62,6 +62,7 @@ fun CalendarSheet(
     weekStart: DayOfWeek,
     onPick: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
+    enabled: (LocalDate) -> Boolean = { true },
 ) {
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
     ModalBottomSheet(
@@ -85,6 +86,7 @@ fun CalendarSheet(
                 weekStart = weekStart,
                 onPick = onPick,
                 onMonthChange = { month = it },
+                enabled = enabled,
             )
             Text(
                 "A dot marks a day that has something on it.",
@@ -94,7 +96,7 @@ fun CalendarSheet(
             )
             Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)) {
                 QuietButton("Close", onDismiss, Modifier.weight(1f))
-                PrimaryButton("Today", { onPick(today) }, Modifier.weight(1f))
+                PrimaryButton("Today", { onPick(today) }, Modifier.weight(1f), enabled = enabled(today))
             }
         }
     }

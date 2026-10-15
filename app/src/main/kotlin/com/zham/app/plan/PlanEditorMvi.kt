@@ -31,6 +31,7 @@ import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import javax.inject.Inject
 
@@ -61,6 +62,7 @@ data class PlanEditorState(
     val weekStart: DayOfWeek,
     val marks: CalendarMarks,
     val error: String?,
+    val canSave: Boolean,
 )
 
 sealed interface PlanEditorEvent {
@@ -147,6 +149,8 @@ class PlanEditorViewModel @Inject constructor(
         val use24Hours = settings?.use24Hours ?: true
         val formatters = TimeFormatters(clock.zone, use24Hours)
         val selected = categoryId.value
+        // Worked out from what is on screen now, so it goes away as soon as the input is fixed.
+        val problem = if (startHasPassed()) "A new block cannot start in the past. Pick a later time or day." else null
 
         return PlanEditorState(
             editing = planId != 0L,
@@ -177,11 +181,14 @@ class PlanEditorViewModel @Inject constructor(
             now = LocalTime.now(clock).withSecond(0).withNano(0),
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
             marks = calendarMarks(entries, plans, clock.zone),
-            error = error.value,
+            error = problem ?: error.value,
+            canSave = problem == null,
         )
     }
 
     override fun onEvent(event: PlanEditorEvent) {
+        // A message from an earlier save describes input that may no longer exist.
+        if (event != PlanEditorEvent.Save) error.value = null
         when (event) {
             is PlanEditorEvent.SelectCategory -> {
                 categoryId.value = event.id
@@ -217,7 +224,13 @@ class PlanEditorViewModel @Inject constructor(
     private fun length(): Duration = Duration.between(start.value, end.value)
         .let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
 
+    /** A new block cannot begin in the past; blocks already saved may keep their old dates. */
+    private fun startHasPassed(): Boolean =
+        planId == 0L && LocalDateTime.of(date.value, start.value)
+            .isBefore(LocalDateTime.now(clock).withSecond(0).withNano(0))
+
     private fun save() {
+        if (startHasPassed()) return
         viewModelScope.launch {
             savePlan(
                 id = planId,

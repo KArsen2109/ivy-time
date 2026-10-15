@@ -48,6 +48,9 @@ fun TimeKeypadDialog(
     now: LocalTime,
     onDismiss: () -> Unit,
     onSet: (LocalTime) -> Unit,
+    /** Times that return false cannot be set; [blockedHint] says why. */
+    isAllowed: (LocalTime) -> Boolean = { true },
+    blockedHint: String = "",
 ) {
     // Nothing is typed yet, so the display starts on the time being edited.
     var digits by remember { mutableStateOf("") }
@@ -55,6 +58,7 @@ fun TimeKeypadDialog(
         .padStart(4, '0').takeLast(4)
     val time = digitsToTime(shown)
     val hoursActive = digits.length <= 2
+    val blocked = time != null && !isAllowed(time)
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -84,11 +88,13 @@ fun TimeKeypadDialog(
             Text(
                 text = if (time == null) {
                     "Hours go up to 23 and minutes up to 59"
+                } else if (blocked) {
+                    blockedHint
                 } else {
                     "Type the time. The newest digit goes on the right"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (time == null) MaterialTheme.colorScheme.error else ZhamTheme.extra.slate,
+                color = if (time == null || blocked) MaterialTheme.colorScheme.error else ZhamTheme.extra.slate,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -103,7 +109,7 @@ fun TimeKeypadDialog(
                 PrimaryButton(
                     text = "Set time",
                     onClick = { time?.let(onSet) },
-                    enabled = time != null,
+                    enabled = time != null && !blocked,
                     modifier = Modifier.weight(1f),
                 )
             }

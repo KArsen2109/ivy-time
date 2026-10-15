@@ -56,6 +56,7 @@ data class EntryState(
     val weekStart: DayOfWeek,
     val marks: CalendarMarks,
     val error: String?,
+    val canSave: Boolean,
 )
 
 sealed interface EntryEvent {
@@ -139,6 +140,8 @@ class EntryViewModel @Inject constructor(
         val formatters = TimeFormatters(clock.zone, use24Hours)
 
         val selectedCategory = categoryId.value
+        // Worked out from what is on screen now, so it goes away as soon as the input is fixed.
+        val problem = if (endsInTheFuture()) "This record would end after the current time." else null
         return EntryState(
             editing = entryId != 0L,
             categories = categories
@@ -166,11 +169,14 @@ class EntryViewModel @Inject constructor(
             now = LocalTime.now(clock).withSecond(0).withNano(0),
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
             marks = calendarMarks(entries, plans, clock.zone),
-            error = error.value,
+            error = problem ?: error.value,
+            canSave = problem == null,
         )
     }
 
     override fun onEvent(event: EntryEvent) {
+        // A message from an earlier save describes input that may no longer exist.
+        if (event != EntryEvent.Save) error.value = null
         when (event) {
             is EntryEvent.SelectCategory -> {
                 categoryId.value = event.id
@@ -197,7 +203,13 @@ class EntryViewModel @Inject constructor(
         return if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw
     }
 
+    private fun endsInTheFuture(): Boolean {
+        val startInstant = date.value.atTime(start.value).atZone(clock.zone).toInstant()
+        return startInstant.plus(duration()).isAfter(clock.instant())
+    }
+
     private fun save() {
+        if (endsInTheFuture()) return
         viewModelScope.launch {
             val zone = clock.zone
             val startInstant = date.value.atTime(start.value).atZone(zone).toInstant()

@@ -193,6 +193,7 @@ fun EntryUi(
         PrimaryButton(
             text = "Save record",
             onClick = { onEvent(EntryEvent.Save) },
+            enabled = state.canSave,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 16.dp),
         )
     }
@@ -209,6 +210,7 @@ fun EntryUi(
                 datePickerVisible = false
             },
             onDismiss = { datePickerVisible = false },
+            enabled = { !it.isAfter(state.today) },
         )
     }
     if (startPickerVisible) {
@@ -221,6 +223,8 @@ fun EntryUi(
                 onEvent(EntryEvent.SetStart(it))
                 startPickerVisible = false
             },
+            isAllowed = { state.date != state.today || !it.isAfter(state.now) },
+            blockedHint = "That time has not come yet today",
         )
     }
     if (endPickerVisible) {
@@ -233,6 +237,8 @@ fun EntryUi(
                 onEvent(EntryEvent.SetEnd(it))
                 endPickerVisible = false
             },
+            isAllowed = { state.date != state.today || !it.isAfter(state.now) },
+            blockedHint = "That time has not come yet today",
         )
     }
 }

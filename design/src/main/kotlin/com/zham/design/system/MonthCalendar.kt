@@ -45,6 +45,8 @@ fun MonthCalendar(
     onPick: (LocalDate) -> Unit,
     onMonthChange: (YearMonth) -> Unit,
     modifier: Modifier = Modifier,
+    /** Days that return false cannot be picked at all. */
+    enabled: (LocalDate) -> Boolean = { true },
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -80,7 +82,7 @@ fun MonthCalendar(
         val cells = List(lead) { null } + (1..month.lengthOfMonth()).map { month.atDay(it) }
         cells.chunked(7).forEach { week ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                week.forEach { date -> DayCell(date, selected, today, marked, onPick, Modifier.weight(1f)) }
+                week.forEach { date -> DayCell(date, selected, today, marked, enabled(date ?: today), onPick, Modifier.weight(1f)) }
                 repeat(7 - week.size) { Box(Modifier.weight(1f)) }
             }
             Box(Modifier.size(4.dp))
@@ -94,6 +96,7 @@ private fun DayCell(
     selected: LocalDate,
     today: LocalDate,
     marked: (LocalDate) -> Boolean,
+    enabled: Boolean,
     onPick: (LocalDate) -> Unit,
     modifier: Modifier,
 ) {
@@ -115,13 +118,17 @@ private fun DayCell(
                     Modifier
                 }
             )
-            .clickable { onPick(date) },
+            .clickable(enabled = enabled) { onPick(date) },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = date.dayOfMonth.toString(),
             style = MaterialTheme.typography.labelLarge,
-            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                isSelected -> MaterialTheme.colorScheme.onPrimary
+                !enabled -> ZhamTheme.extra.slate.copy(alpha = 0.35f)
+                else -> MaterialTheme.colorScheme.onSurface
+            },
         )
         if (marked(date)) {
             Box(

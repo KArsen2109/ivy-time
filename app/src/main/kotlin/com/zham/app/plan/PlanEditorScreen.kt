@@ -231,6 +231,7 @@ fun PlanEditorUi(
         PrimaryButton(
             text = "Save block",
             onClick = { onEvent(PlanEditorEvent.Save) },
+            enabled = state.canSave,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.Gutter),
@@ -249,6 +250,7 @@ fun PlanEditorUi(
                 datePicker = false
             },
             onDismiss = { datePicker = false },
+            enabled = { state.editing || !it.isBefore(state.today) },
         )
     }
     if (startPicker) {
@@ -261,6 +263,8 @@ fun PlanEditorUi(
                 onEvent(PlanEditorEvent.SetStart(it))
                 startPicker = false
             },
+            isAllowed = { state.editing || state.date != state.today || !it.isBefore(state.now) },
+            blockedHint = "That time has already passed today",
         )
     }
     if (endPicker) {
