@@ -3,7 +3,10 @@ package com.zham.app
 import android.app.Application
 import androidx.compose.ui.graphics.toArgb
 import com.zham.design.system.CategoryPalette
+import com.zham.app.reminders.ReminderScheduler
 import com.zham.data.SettingsStore
+import com.zham.domain.model.PlanRepository
+import kotlinx.coroutines.flow.combine
 import com.zham.domain.model.Category
 import com.zham.domain.model.CategoryRepository
 import dagger.hilt.android.HiltAndroidApp
@@ -23,11 +26,26 @@ class ZhamApplication : Application() {
     @Inject
     lateinit var settingsStore: SettingsStore
 
+    @Inject
+    lateinit var planRepository: PlanRepository
+
+    @Inject
+    lateinit var reminderScheduler: ReminderScheduler
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
         seedDefaultCategories()
+        keepRemindersCurrent()
+    }
+
+    /** Re-plans the reminder alarm at start and whenever a block or tick-off changes. */
+    private fun keepRemindersCurrent() {
+        scope.launch {
+            combine(planRepository.observePlans(), planRepository.observeCompletions()) { _, _ -> }
+                .collect { reminderScheduler.sync() }
+        }
     }
 
     /**

@@ -49,7 +49,7 @@ object DataModule {
     fun database(@ApplicationContext context: Context): ZhamDatabase {
         adoptEarlierFiles(context)
         return Room.databaseBuilder(context, ZhamDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_3_4)
+            .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
             // Versions 1 and 2 were early builds with nothing worth carrying over.
             .fallbackToDestructiveMigrationFrom(1, 2)
             .build()

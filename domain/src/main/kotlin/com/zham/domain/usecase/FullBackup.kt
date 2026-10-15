@@ -53,6 +53,7 @@ data class BackupData(
         val end: LocalTime,
         val startDate: LocalDate,
         val repeat: RepeatRule,
+        val reminderMinutes: Int? = null,
     )
     /** [plan] is the position of the block in [plans]. */
     data class CompletionItem(val plan: Int, val date: LocalDate)
@@ -114,6 +115,7 @@ object FullBackup {
                         is RepeatRule.Weekly -> "Weekly"
                     },
                     "days" to ((it.repeat as? RepeatRule.Weekly)?.days.orEmpty().map { day -> day.name }),
+                    "reminderMinutes" to it.reminderMinutes,
                 )
             },
             "completions" to data.completions.map { mapOf("plan" to it.plan, "date" to it.date.toString()) },
@@ -189,6 +191,7 @@ object FullBackup {
                         "Weekly" -> RepeatRule.Weekly(days)
                         else -> RepeatRule.Once
                     },
+                    reminderMinutes = it.int("reminderMinutes")?.takeIf { minutes -> minutes >= 0 },
                 )
             },
             completions = items("completions").mapNotNull {
@@ -248,7 +251,7 @@ class BuildBackupUseCase @Inject constructor(
             plans = plans.map {
                 BackupData.PlanItem(
                     categoryNames[it.categoryId].orEmpty(), projectNames[it.projectId].orEmpty(),
-                    it.note, it.description, it.start, it.end, it.startDate, it.repeat,
+                    it.note, it.description, it.start, it.end, it.startDate, it.repeat, it.reminderMinutes,
                 )
             },
             completions = completions.mapNotNull { completion ->
@@ -355,7 +358,7 @@ class RestoreBackupUseCase @Inject constructor(
         val wanted = data.plans.map {
             PlanBlock(
                 0, categoryId(it.category), projectId(it.category, it.project), it.note,
-                it.start, it.end, it.startDate, it.repeat, it.description,
+                it.start, it.end, it.startDate, it.repeat, it.description, it.reminderMinutes,
             )
         }
         wanted.forEach { block ->

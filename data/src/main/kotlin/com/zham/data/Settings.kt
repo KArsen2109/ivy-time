@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.DayOfWeek
 
@@ -49,6 +51,15 @@ class SettingsStore(
 
     suspend fun setUse24Hours(use24Hours: Boolean) {
         context.dataStore.edit { it[use24HoursKey] = use24Hours }
+    }
+
+    private val lastReminderKey = longPreferencesKey("last_reminder_millis")
+
+    /** The moment up to which plan reminders have been handled, or null before the first run. */
+    suspend fun lastReminderMillis(): Long? = context.dataStore.data.first()[lastReminderKey]
+
+    suspend fun setLastReminderMillis(millis: Long) {
+        context.dataStore.edit { it[lastReminderKey] = millis }
     }
 
     suspend fun setOnboardingDone(done: Boolean) {

@@ -64,6 +64,8 @@ data class PlanEditorState(
     val error: String?,
     /** True when the chosen time has passed today, so the new block lands on the next day. */
     val movedToNextDay: Boolean,
+    /** Minutes before the start to remind; null for no reminder. */
+    val reminderMinutes: Int?,
 )
 
 sealed interface PlanEditorEvent {
@@ -75,6 +77,7 @@ sealed interface PlanEditorEvent {
     data class SetStart(val time: LocalTime) : PlanEditorEvent
     data class SetEnd(val time: LocalTime) : PlanEditorEvent
     data class SetLength(val minutes: Long) : PlanEditorEvent
+    data class SetReminder(val minutes: Int?) : PlanEditorEvent
     data class SetRepeat(val repeat: RepeatChoice) : PlanEditorEvent
     data class ToggleWeekday(val day: DayOfWeek) : PlanEditorEvent
     data object Save : PlanEditorEvent
@@ -109,6 +112,7 @@ class PlanEditorViewModel @Inject constructor(
     private val end = mutableStateOf(LocalTime.ofSecondOfDay((startMinutes + 60) * 60L % 86400))
     private val repeat = mutableStateOf(RepeatChoice.Once)
     private val weekdays = mutableStateOf(setOf(initialDate.dayOfWeek))
+    private val reminder = mutableStateOf<Int?>(null)
     private val error = mutableStateOf<String?>(null)
     private val closed = mutableStateOf(false)
 
@@ -122,6 +126,7 @@ class PlanEditorViewModel @Inject constructor(
                     projectId.value = plan.projectId
                     note.value = plan.note
                     description.value = plan.description
+                    reminder.value = plan.reminderMinutes
                     date.value = plan.startDate
                     start.value = plan.start
                     end.value = plan.end
@@ -182,6 +187,7 @@ class PlanEditorViewModel @Inject constructor(
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
             marks = calendarMarks(entries, plans, clock.zone),
             error = error.value,
+            reminderMinutes = reminder.value,
             movedToNextDay = effectiveDate() != notBeforeToday(date.value),
         )
     }
@@ -210,6 +216,7 @@ class PlanEditorViewModel @Inject constructor(
             }
             is PlanEditorEvent.SetEnd -> end.value = event.time
             is PlanEditorEvent.SetLength -> end.value = start.value.plusMinutes(event.minutes)
+            is PlanEditorEvent.SetReminder -> reminder.value = event.minutes
             is PlanEditorEvent.SetRepeat -> repeat.value = event.repeat
             is PlanEditorEvent.ToggleWeekday -> weekdays.value = weekdays.value.toMutableSet()
                 .apply { if (!add(event.day)) remove(event.day) }
@@ -249,6 +256,7 @@ class PlanEditorViewModel @Inject constructor(
                 start = start.value,
                 end = end.value,
                 startDate = effectiveDate(),
+                reminderMinutes = reminder.value,
                 repeat = when (repeat.value) {
                     RepeatChoice.Once -> RepeatRule.Once
                     RepeatChoice.Daily -> RepeatRule.Daily

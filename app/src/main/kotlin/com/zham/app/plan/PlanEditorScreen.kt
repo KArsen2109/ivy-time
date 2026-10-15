@@ -1,6 +1,11 @@
 package com.zham.app.plan
 
 import com.zham.app.ui.rememberDeleteConfirm
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.zham.design.system.ChoiceChip
@@ -43,6 +49,16 @@ import com.zham.design.system.TimeKeypadDialog
 import com.zham.app.ui.CalendarSheet
 import com.zham.app.ui.PickerRow
 import java.time.DayOfWeek
+
+/** Minutes before the start, as offered in the reminder row. */
+private val REMINDER_CHOICES = listOf(0, 5, 10, 15, 30, 60, 120, 1440)
+
+private fun reminderLabel(minutes: Int): String = when {
+    minutes == 0 -> "At start"
+    minutes == 1440 -> "1 day before"
+    minutes >= 60 -> "${minutes / 60} h before"
+    else -> "$minutes min before"
+}
 
 private val LENGTHS = listOf(15L, 30L, 45L, 60L, 90L, 120L, 180L, 240L)
 
@@ -65,6 +81,11 @@ fun PlanEditorUi(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    var notificationsBlocked by remember { mutableStateOf(false) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> notificationsBlocked = !granted }
     var datePicker by remember { mutableStateOf(false) }
     var startPicker by remember { mutableStateOf(false) }
     var endPicker by remember { mutableStateOf(false) }
@@ -226,6 +247,46 @@ fun PlanEditorUi(
             Text(
                 text = "That time has already passed today, so this block goes on the next day.",
                 style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            )
+        }
+
+        SectionLabel("Reminder")
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.Gutter),
+        ) {
+            item {
+                ChoiceChip(
+                    label = "Off",
+                    selected = state.reminderMinutes == null,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = { onEvent(PlanEditorEvent.SetReminder(null)) },
+                )
+            }
+            items(REMINDER_CHOICES) { minutes ->
+                ChoiceChip(
+                    label = reminderLabel(minutes),
+                    selected = state.reminderMinutes == minutes,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = {
+                        onEvent(PlanEditorEvent.SetReminder(minutes))
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                            PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    },
+                )
+            }
+        }
+        if (state.reminderMinutes != null && notificationsBlocked) {
+            Text(
+                text = "Zham is not allowed to show notifications. Turn them on in the phone's settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
             )
         }

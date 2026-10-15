@@ -119,6 +119,7 @@ data class PlanBlockEntity(
     /** "ONCE", "DAILY", "MONTHLY" or "WEEKLY:MONDAY,WEDNESDAY". */
     val repeat: String,
     val description: String = "",
+    val reminderMinutes: Int? = null,
 ) {
     fun toDomain() = PlanBlock(
         id = id,
@@ -130,6 +131,7 @@ data class PlanBlockEntity(
         startDate = LocalDate.ofEpochDay(startEpochDay),
         repeat = parseRepeat(repeat),
         description = description,
+        reminderMinutes = reminderMinutes,
     )
 }
 
@@ -151,6 +153,7 @@ fun PlanBlock.toEntity() = PlanBlockEntity(
     startEpochDay = startDate.toEpochDay(),
     repeat = writeRepeat(repeat),
     description = description,
+    reminderMinutes = reminderMinutes,
 )
 
 private fun writeRepeat(rule: RepeatRule): String = when (rule) {

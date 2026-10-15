@@ -84,7 +84,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -133,5 +133,12 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE time_entries ADD COLUMN description TEXT NOT NULL DEFAULT ''")
         db.execSQL("ALTER TABLE plan_blocks ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/** 4 to 5 adds the optional reminder to plan blocks; existing blocks get none. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE plan_blocks ADD COLUMN reminderMinutes INTEGER")
     }
 }

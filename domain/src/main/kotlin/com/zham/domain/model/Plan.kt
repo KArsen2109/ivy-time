@@ -29,6 +29,8 @@ data class PlanBlock(
     val startDate: LocalDate,
     val repeat: RepeatRule,
     val description: String = "",
+    /** Minutes before the start to remind the user; null means no reminder, 0 means at the start. */
+    val reminderMinutes: Int? = null,
 ) {
     val duration: Duration
         get() = Duration.between(start, end).let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
