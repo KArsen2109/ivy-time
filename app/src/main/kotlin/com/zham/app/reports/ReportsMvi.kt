@@ -40,6 +40,9 @@ import javax.inject.Inject
 
 private const val UNCATEGORISED = 0xFF7A8CA8.toInt()
 
+/** Grey for the time nobody tracked; translucent so it reads on both light and dark. */
+private val NOT_TRACKED = Color(0x598E949C)
+
 /** The periods a report can cover. [Custom] is a range the user picked in the filter. */
 enum class ReportPeriod { Day, Week, Month, Year, Custom }
 
@@ -49,7 +52,9 @@ data class ReportsState(
     val rangeLabel: String,
     val total: String,
     val average: String,
+    /** The tracked categories, then the part of the period nobody tracked, in grey. */
     val slices: ImmutableList<ReportRow>,
+    val hasTracked: Boolean,
     val projects: ImmutableList<ReportRow>,
     val bars: ImmutableList<Pair<String, Float>>,
     val barValues: ImmutableList<String>,
@@ -141,6 +146,9 @@ class ReportsViewModel @Inject constructor(
         val entries = if (chosen.isEmpty()) allEntries else allEntries.filter { it.categoryId in chosen }
 
         val total = totalIn(entries, from, to, now)
+        // The whole period starts out untracked; each record takes its share of it.
+        val periodLength = Duration.between(from, to)
+        val untracked = periodLength.minus(total).let { if (it.isNegative) Duration.ZERO else it }
         val dayCount = (range.toExclusive.toEpochDay() - range.from.toEpochDay()).toInt().coerceAtLeast(1)
         val categoriesById = categories.associateBy { it.id }
         val projectsById = projects.associateBy { it.id }
@@ -188,10 +196,21 @@ class ReportsViewModel @Inject constructor(
                     name = category?.name ?: "No category",
                     color = Color(category?.color ?: UNCATEGORISED),
                     duration = row.total.formatShort(),
-                    percent = percent(row.total, total),
+                    percent = percent(row.total, periodLength),
                     minutes = row.total.toMinutes().toFloat(),
                 )
-            }.toImmutableList(),
+            }
+                .plus(
+                    ReportRow(
+                        name = "Not tracked",
+                        color = NOT_TRACKED,
+                        duration = untracked.formatShort(),
+                        percent = percent(untracked, periodLength),
+                        minutes = untracked.toMinutes().toFloat(),
+                    )
+                )
+                .toImmutableList(),
+            hasTracked = !total.isZero,
             projects = summarizeByProject(entries, from, to, now)
                 .filter { it.first != null }
                 .map { (projectId, duration) ->
@@ -201,7 +220,7 @@ class ReportsViewModel @Inject constructor(
                         name = listOfNotNull(category?.name, project?.name).joinToString(" / "),
                         color = Color(project?.color ?: UNCATEGORISED),
                         duration = duration.formatShort(),
-                        percent = percent(duration, total),
+                        percent = percent(duration, periodLength),
                         minutes = duration.toMinutes().toFloat(),
                     )
                 }.toImmutableList(),

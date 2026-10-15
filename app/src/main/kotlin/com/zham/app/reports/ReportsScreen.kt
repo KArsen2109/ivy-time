@@ -146,9 +146,9 @@ fun ReportsUi(state: ReportsState, onEvent: (ReportsEvent) -> Unit, modifier: Mo
                         modifier = Modifier.padding(vertical = 4.dp),
                     )
                 }
-                if (state.slices.isEmpty()) {
+                if (!state.hasTracked) {
                     Text(
-                        "Nothing tracked with these filters.",
+                        "Nothing tracked with these filters, so all of it is grey.",
                         color = ZhamTheme.extra.slate,
                         style = MaterialTheme.typography.bodyMedium,
                     )
