@@ -1,5 +1,16 @@
 package com.zham.app.plan
 
+import java.util.Locale
+import java.time.format.TextStyle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import com.zham.app.ui.rememberDeleteConfirm
 import android.Manifest
 import android.app.AlarmManager
@@ -71,6 +82,27 @@ private fun canScheduleExactAlarms(context: Context): Boolean =
     Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
         context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
+/** One letter on a plain pill: seven of these fit in a row, which full chips do not. */
+@Composable
+private fun WeekdayToggle(day: DayOfWeek, selected: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    val name = day.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+            .toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggle() })
+            .semantics { contentDescription = name },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = name.take(1),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) MaterialTheme.colorScheme.onPrimary else ZhamTheme.extra.slate,
+        )
+    }
+}
+
 private val LENGTHS = listOf(15L, 30L, 45L, 60L, 90L, 120L, 180L, 240L)
 
 @Composable
@@ -93,7 +125,13 @@ fun PlanEditorUi(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    var notificationsBlocked by remember { mutableStateOf(false) }
+    // True from the start when a reminder is set but the phone would not show it.
+    var notificationsBlocked by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        )
+    }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> notificationsBlocked = !granted }
@@ -237,11 +275,10 @@ fun PlanEditorUi(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 DayOfWeek.entries.forEach { day ->
-                    ChoiceChip(
-                        label = day.name.take(1),
+                    WeekdayToggle(
+                        day = day,
                         selected = day in state.weekdays,
-                        color = MaterialTheme.colorScheme.primary,
-                        onClick = { onEvent(PlanEditorEvent.ToggleWeekday(day)) },
+                        onToggle = { onEvent(PlanEditorEvent.ToggleWeekday(day)) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -315,9 +352,12 @@ fun PlanEditorUi(
             )
             TextButton(
                 onClick = {
-                    exactSettings.launch(
-                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName))
-                    )
+                    // Some phone makers do not ship this settings page.
+                    runCatching {
+                        exactSettings.launch(
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName))
+                        )
+                    }
                 },
                 modifier = Modifier.padding(horizontal = 8.dp),
             ) { Text("Allow exact times") }

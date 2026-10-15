@@ -45,6 +45,7 @@ private const val UNCATEGORISED = 0xFF7A8CA8.toInt()
 
 @Immutable
 data class WeekState(
+    val title: String,
     val rangeLabel: String,
     val plannedLabel: String,
     val trackedLabel: String,
@@ -137,6 +138,12 @@ class WeekViewModel @Inject constructor(
         val busiest = plansByDay.maxByOrNull { it.second.tracked }
 
         return WeekState(
+            title = when (weekOffset.longValue) {
+                0L -> "This week"
+                -1L -> "Last week"
+                1L -> "Next week"
+                else -> "Week of " + formatters.dayMonth(range.from)
+            },
             rangeLabel = formatters.dayMonth(range.from) + " – " +
                 formatters.dayMonth(range.toExclusive.minusDays(1)),
             plannedLabel = planned.formatShort(),
@@ -157,7 +164,8 @@ class WeekViewModel @Inject constructor(
                     planned = day.occurrences.map { occurrence ->
                         val category = categoriesById[occurrence.plan.categoryId]
                         TimelineBlock(
-                            id = occurrence.plan.id,
+                            // The tail of yesterday's block gets a negative id so it never shares one with today's.
+                            id = if (occurrence.date == date) occurrence.plan.id else -occurrence.plan.id,
                             startMinutes = minutesFromMidnight(occurrence.startsAt, date, zone),
                             endMinutes = minutesFromMidnight(occurrence.endsAt, date, zone),
                             label = "",

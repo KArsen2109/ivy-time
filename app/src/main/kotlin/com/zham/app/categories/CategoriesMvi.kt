@@ -1,5 +1,6 @@
 package com.zham.app.categories
 
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -88,14 +89,19 @@ class CategoriesViewModel @Inject constructor(
     }
 
     override fun onEvent(event: CategoriesEvent) {
+        error.value = null
         when (event) {
             is CategoriesEvent.Save -> viewModelScope.launch {
+                // An edited category keeps its place; a new one goes to the end.
+                val existing = categoryRepository.observeCategories().first()
+                val order = existing.firstOrNull { it.id == event.id }?.orderNum
+                    ?: ((existing.maxOfOrNull { it.orderNum } ?: -1.0) + 1.0)
                 saveCategory(
                     id = event.id,
                     name = event.name,
                     color = event.color.toArgb(),
                     icon = event.icon,
-                    orderNum = event.id.toDouble(),
+                    orderNum = order,
                 ).fold(
                     ifLeft = { error.value = it.message() },
                     ifRight = { error.value = null },

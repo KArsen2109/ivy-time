@@ -1,5 +1,6 @@
 package com.zham.app.timer
 
+import androidx.compose.ui.text.style.TextOverflow
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -80,6 +81,8 @@ fun TimerUi(
                         Text(
                             text = state.elapsed,
                             style = MaterialTheme.typography.displayMedium.copy(fontSize = 34.sp),
+                            maxLines = 1,
+                            softWrap = false,
                             color = if (state.running) state.color else MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(8.dp))
@@ -87,6 +90,8 @@ fun TimerUi(
                             text = state.title,
                             style = MaterialTheme.typography.titleMedium,
                             textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = state.subtitle,
@@ -157,7 +162,7 @@ fun TimerUi(
             }
 
             PrimaryButton(
-                text = if (state.running) "Stop" else "Start " + state.categoryName,
+                text = if (state.running) "Stop" else if (state.selectedCategoryId == null) "Start" else "Start " + state.categoryName,
                 color = state.color,
                 onClick = { onEvent(TimerEvent.Toggle) },
                 icon = if (state.running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,

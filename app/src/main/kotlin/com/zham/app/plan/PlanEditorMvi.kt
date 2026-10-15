@@ -100,6 +100,7 @@ class PlanEditorViewModel @Inject constructor(
     private val startMinutes: Int = savedStateHandle.get<String>("minutes")?.toIntOrNull() ?: 540
     private val initialDate: LocalDate = savedStateHandle.get<String>("date")
         ?.toLongOrNull()
+        ?.takeIf { it >= 0 }
         ?.let(LocalDate::ofEpochDay)
         ?: LocalDate.now(clock)
 
@@ -115,6 +116,8 @@ class PlanEditorViewModel @Inject constructor(
     private val reminder = mutableStateOf<Int?>(null)
     private val error = mutableStateOf<String?>(null)
     private val closed = mutableStateOf(false)
+    private var saving = false
+    private var weekdaysTouched = false
 
     val finished: Boolean get() = closed.value
 
@@ -137,6 +140,7 @@ class PlanEditorViewModel @Inject constructor(
                         is RepeatRule.Weekly -> {
                             repeat.value = RepeatChoice.Weekly
                             weekdays.value = rule.days
+                            weekdaysTouched = true
                         }
                     }
                 }
@@ -217,9 +221,18 @@ class PlanEditorViewModel @Inject constructor(
             is PlanEditorEvent.SetEnd -> end.value = event.time
             is PlanEditorEvent.SetLength -> end.value = start.value.plusMinutes(event.minutes)
             is PlanEditorEvent.SetReminder -> reminder.value = event.minutes
-            is PlanEditorEvent.SetRepeat -> repeat.value = event.repeat
-            is PlanEditorEvent.ToggleWeekday -> weekdays.value = weekdays.value.toMutableSet()
-                .apply { if (!add(event.day)) remove(event.day) }
+            is PlanEditorEvent.SetRepeat -> {
+                repeat.value = event.repeat
+                // Until the user picks days, a weekly block repeats on the day it starts.
+                if (event.repeat == RepeatChoice.Weekly && !weekdaysTouched) {
+                    weekdays.value = setOf(effectiveDate().dayOfWeek)
+                }
+            }
+            is PlanEditorEvent.ToggleWeekday -> {
+                weekdaysTouched = true
+                weekdays.value = weekdays.value.toMutableSet()
+                    .apply { if (!add(event.day)) remove(event.day) }
+            }
             PlanEditorEvent.Save -> save()
             PlanEditorEvent.Delete -> viewModelScope.launch {
                 if (planId != 0L) planRepository.delete(planId)
@@ -246,6 +259,8 @@ class PlanEditorViewModel @Inject constructor(
         LocalDate.now(clock).let { today -> if (day.isBefore(today)) today else day }
 
     private fun save() {
+        if (saving) return
+        saving = true
         viewModelScope.launch {
             savePlan(
                 id = planId,
@@ -264,7 +279,10 @@ class PlanEditorViewModel @Inject constructor(
                     RepeatChoice.Weekly -> RepeatRule.Weekly(weekdays.value)
                 },
             ).fold(
-                ifLeft = { error.value = it.message() },
+                ifLeft = {
+                    saving = false
+                    error.value = it.message()
+                },
                 ifRight = {
                     error.value = null
                     closed.value = true

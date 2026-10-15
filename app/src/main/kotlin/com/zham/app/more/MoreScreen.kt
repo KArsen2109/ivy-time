@@ -1,5 +1,9 @@
 package com.zham.app.more
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import android.net.Uri
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -53,10 +57,7 @@ fun MoreScreen(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val text = viewModel.buildFullBackup()
-            val written = runCatching {
-                context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
-            }.isSuccess
+            val written = writeText(context, uri) { viewModel.buildFullBackup() }
             viewModel.onEvent(MoreEvent.ExportDone(written))
         }
     }
@@ -66,10 +67,7 @@ fun MoreScreen(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val csv = viewModel.buildCsv()
-            val written = runCatching {
-                context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-            }.isSuccess
+            val written = writeText(context, uri) { viewModel.buildCsv() }
             viewModel.onEvent(MoreEvent.ExportDone(written))
         }
     }
@@ -78,10 +76,14 @@ fun MoreScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val content = runCatching {
-            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()
-        if (content != null) viewModel.onEvent(MoreEvent.ImportCsv(content))
+        scope.launch {
+            val content = readText(context, uri)
+            if (content != null) {
+                viewModel.onEvent(MoreEvent.ImportCsv(content))
+            } else {
+                viewModel.onEvent(MoreEvent.ImportUnreadable)
+            }
+        }
     }
 
     MoreUi(
@@ -241,7 +243,7 @@ fun MoreUi(
             }
 
             Text(
-                "Zham 0.6 · open source",
+                "Zham " + versionName(LocalContext.current) + " · everything stays on this phone",
                 style = MaterialTheme.typography.bodySmall,
                 color = ZhamTheme.extra.slate,
                 modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 20.dp),
@@ -249,3 +251,40 @@ fun MoreUi(
         }
     }
 }
+
+/** The most text an import will read; a real backup is far smaller, so a bigger file is not one. */
+private const val MAX_IMPORT_CHARS = 20_000_000
+
+/** Writes the text off the main thread; true only when the file was really opened and written. */
+private suspend fun writeText(context: Context, uri: Uri, text: suspend () -> String): Boolean {
+    val body = text()
+    return withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { it.write(body.toByteArray()) } != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+}
+
+/** Reads the file off the main thread, or null when it cannot be read or is implausibly large. */
+private suspend fun readText(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+    try {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+            val out = StringBuilder()
+            val buffer = CharArray(8192)
+            while (true) {
+                val read = reader.read(buffer)
+                if (read < 0) break
+                out.append(buffer, 0, read)
+                if (out.length > MAX_IMPORT_CHARS) return@use null
+            }
+            out.toString()
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun versionName(context: Context): String =
+    runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()

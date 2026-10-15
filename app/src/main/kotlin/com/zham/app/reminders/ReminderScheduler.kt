@@ -53,9 +53,10 @@ class ReminderScheduler @Inject constructor(
         val handledUpTo = settingsStore.lastReminderMillis()?.let(Instant::ofEpochMilli) ?: now
         val zone = clock.zone
 
-        // A reminder missed while the phone was off is dropped once its block has begun.
+        // A reminder that arrives late (a sleeping phone, a restart) is still worth showing while its
+        // block is under way; once the block is over it no longer helps.
         val due = remindersBetween(plans, completed, handledUpTo, now, zone)
-            .filter { it.occurrence.startsAt.isAfter(now) }
+            .filter { it.occurrence.endsAt.isAfter(now) }
         if (due.isNotEmpty()) {
             val categories = categoryRepository.observeCategories().firstOrNull().orEmpty()
                 .associateBy { it.id }
@@ -69,14 +70,17 @@ class ReminderScheduler @Inject constructor(
 
     private fun show(reminder: Reminder, now: Instant, formatters: TimeFormatters, category: String?) {
         val plan = reminder.occurrence.plan
-        val minutes = Duration.between(now, reminder.occurrence.startsAt).toMinutes().coerceAtLeast(0)
+        val minutes = Duration.between(now, reminder.occurrence.startsAt).toMinutes()
         val whenText = when {
-            minutes <= 0 -> "starts now"
+            minutes < 0 -> "started ${-minutes} min ago"
+            minutes == 0L -> "starts now"
             minutes < 60 -> "starts in $minutes min"
             else -> "starts in ${minutes / 60} h" + if (minutes % 60 > 0) " ${minutes % 60} min" else ""
         }
         val open = PendingIntent.getActivity(
-            context, 0, Intent(context, MainActivity::class.java),
+            context, 0,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = Notification.Builder(context, CHANNEL)
@@ -124,7 +128,7 @@ class ReminderScheduler @Inject constructor(
             }
         }.onFailure {
             // Exact alarms were revoked between the check and the call; a looser alarm still works.
-            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, intent)
+            runCatching { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, intent) }
         }
     }
 

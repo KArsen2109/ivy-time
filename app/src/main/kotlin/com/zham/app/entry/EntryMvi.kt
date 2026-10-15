@@ -107,8 +107,15 @@ class EntryViewModel @Inject constructor(
             if (now.isBefore(LocalTime.of(1, 0))) LocalTime.MIDNIGHT else now.minusHours(1)
         }
     )
-    /** Whole days a loaded record lasts beyond what its start and end times alone say. */
-    private val extraDays = mutableStateOf(0L)
+    /**
+     * The exact length of a record that was loaded, kept until the user changes a time. The times
+     * on screen are whole minutes and cannot say how long a record of seconds, or one across a
+     * clock change, really was.
+     */
+    private val fixedDuration = mutableStateOf<Duration?>(null)
+    private var saving = false
+    /** The exact start of a loaded record, used again while its date and start time stay as loaded. */
+    private var loadedStart: Triple<LocalDate, LocalTime, java.time.Instant>? = null
     private val end = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0))
     private val error = mutableStateOf<String?>(null)
     private val loaded = mutableStateOf(entryId == 0L)
@@ -136,10 +143,8 @@ class EntryViewModel @Inject constructor(
                     date.value = startLocal.toLocalDate()
                     start.value = startLocal.toLocalTime().withSecond(0).withNano(0)
                     end.value = endLocal.toLocalTime().withSecond(0).withNano(0)
-                    val shown = Duration.between(start.value, end.value)
-                        .let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
-                    val actual = Duration.between(entry.start, entry.end)
-                    extraDays.value = Math.round((actual - shown).toMinutes() / 1440.0).coerceAtLeast(0)
+                    fixedDuration.value = Duration.between(entry.start, entry.end)
+                    loadedStart = Triple(date.value, start.value, entry.start)
                 }
                 loaded.value = true
             }
@@ -178,7 +183,7 @@ class EntryViewModel @Inject constructor(
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
             durationLabel = duration().formatShort(),
-            crossesMidnight = !end.value.isAfter(start.value),
+            crossesMidnight = fixedDuration.value == null && !end.value.isAfter(start.value),
             date = date.value,
             start = start.value,
             end = end.value,
@@ -206,15 +211,18 @@ class EntryViewModel @Inject constructor(
             is EntryEvent.SetDescription -> description.value = event.description
             is EntryEvent.SetDate -> date.value = event.date
             is EntryEvent.SetStart -> {
-                extraDays.value = 0
+                fixedDuration.value = null
                 start.value = event.time
             }
             is EntryEvent.SetEnd -> {
-                extraDays.value = 0
+                fixedDuration.value = null
                 end.value = event.time
             }
             is EntryEvent.SetDuration -> {
-                extraDays.value = 0
+                fixedDuration.value = null
+                // Counting back past midnight puts the start on the day before.
+                val endMinute = end.value.hour * 60 + end.value.minute
+                if (event.minutes > endMinute) date.value = date.value.minusDays(1)
                 start.value = end.value.minusMinutes(event.minutes)
             }
             EntryEvent.Save -> save()
@@ -228,7 +236,7 @@ class EntryViewModel @Inject constructor(
     /** An end that is not after the start means the record ran past midnight. */
     private fun duration(): Duration {
         val raw = Duration.between(start.value, end.value)
-        return (if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw).plusDays(extraDays.value)
+        return fixedDuration.value ?: if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw
     }
 
     private fun overlapsOther(entries: List<com.zham.domain.model.TimeEntry>): Boolean {
@@ -244,10 +252,13 @@ class EntryViewModel @Inject constructor(
     }
 
     private fun save() {
-        if (endsInTheFuture()) return
+        if (saving || endsInTheFuture()) return
+        saving = true
         viewModelScope.launch {
             val zone = clock.zone
-            val startInstant = date.value.atTime(start.value).atZone(zone).toInstant()
+            val startInstant = loadedStart
+                ?.takeIf { it.first == date.value && it.second == start.value }?.third
+                ?: date.value.atTime(start.value).atZone(zone).toInstant()
             val endInstant = startInstant.plus(duration())
             saveEntry(
                 id = entryId,
@@ -258,7 +269,10 @@ class EntryViewModel @Inject constructor(
                 end = endInstant,
                 description = description.value,
             ).fold(
-                ifLeft = { error.value = it.message() },
+                ifLeft = {
+                    saving = false
+                    error.value = it.message()
+                },
                 ifRight = {
                     error.value = null
                     closed.value = true

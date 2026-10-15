@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.zham.app.week
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -73,7 +76,7 @@ fun WeekUi(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("This week", style = MaterialTheme.typography.headlineMedium)
+                    Text(state.title, style = MaterialTheme.typography.headlineMedium)
                     Text(
                         state.rangeLabel,
                         style = MaterialTheme.typography.bodySmall,
@@ -91,9 +94,10 @@ fun WeekUi(
                 }
             }
 
-            Row(
+            FlowRow(
                 Modifier.padding(horizontal = Spacing.Gutter, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(28.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 StatPair("planned", state.plannedLabel, MaterialTheme.colorScheme.onSurface)
                 StatPair("tracked", state.trackedLabel, MaterialTheme.colorScheme.onSurface)

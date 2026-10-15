@@ -33,6 +33,9 @@ object Ink {
     val Violet = Color(0xFF5B4BFF)
     val VioletSoft = Color(0xFFE9E7FF)
 
+    /** The accent on dark backgrounds. */
+    val VioletOnDark = Color(0xFF9A90FF)
+
     /** Reserved for the present moment and for a running timer. Nothing else. */
     val Signal = Color(0xFFFF8A3D)
 }

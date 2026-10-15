@@ -1,5 +1,8 @@
 package com.zham.app
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.SystemBarStyle
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,12 +33,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by settingsStore.settings.collectAsState(null)
             val theme = settings?.theme ?: ThemeMode.System
+            val dark = when (theme) {
+                ThemeMode.System -> isSystemInDarkTheme()
+                ThemeMode.Light -> false
+                ThemeMode.Dark, ThemeMode.AmoledDark -> true
+            }
+            // The bars' icons follow the app's own theme, which can differ from the phone's.
+            DisposableEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                )
+                onDispose {}
+            }
             ZhamAppTheme(
-                dark = when (theme) {
-                    ThemeMode.System -> isSystemInDarkTheme()
-                    ThemeMode.Light -> false
-                    ThemeMode.Dark, ThemeMode.AmoledDark -> true
-                },
+                dark = dark,
                 amoled = theme == ThemeMode.AmoledDark,
             ) {
                 MainScreen(selectedDay)

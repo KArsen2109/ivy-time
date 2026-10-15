@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.zham.app.day
 
 import com.zham.app.ui.rememberDeleteConfirm
@@ -5,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -217,7 +220,10 @@ private fun Summary(
     onLogTime: (LocalDate) -> Unit,
 ) {
     Column(Modifier.padding(horizontal = Spacing.Gutter, vertical = 12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             StatPair("planned", state.plannedLabel, MaterialTheme.colorScheme.onSurface)
             StatPair("tracked", state.trackedLabel, MaterialTheme.colorScheme.onSurface)
             StatPair(

@@ -1,3 +1,4 @@
 <resources>
-    <style name="Theme.Zham" parent="android:Theme.Material.NoActionBar" />
+    <!-- The window behind the first frame, so a light app does not flash dark when it starts. -->
+    <style name="Theme.Zham" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>

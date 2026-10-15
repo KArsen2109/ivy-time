@@ -207,7 +207,7 @@ fun ReportsUi(state: ReportsState, onEvent: (ReportsEvent) -> Unit, modifier: Mo
         }
 
         if (!state.singleDay) {
-            items(state.projects, key = { it.name }) { row ->
+            items(state.projects) { row ->
                 ZhamCard(Modifier.padding(horizontal = Spacing.Gutter, vertical = 5.dp)) {
                     LegendRow(
                         color = row.color,

@@ -31,7 +31,8 @@ class ReminderReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             try {
-                scheduler.sync()
+                // A reminder that cannot be shown must never take the app down with it.
+                runCatching { scheduler.sync() }
             } finally {
                 pending.finish()
             }

@@ -14,14 +14,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -87,13 +91,15 @@ fun <T> Segmented(
                     .weight(1f)
                     .clip(ZhamShapes.Pill)
                     .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
-                    .clickable { onSelect(option) }
-                    .padding(vertical = 8.dp),
+                    .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(option) })
+                    .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = label(option),
                     style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    softWrap = false,
                     color = if (active) {
                         MaterialTheme.colorScheme.onPrimary
                     } else {
@@ -117,6 +123,7 @@ fun ChoiceChip(
 ) {
     Row(
         modifier
+            .minimumInteractiveComponentSize()
             .clip(ZhamShapes.Pill)
             .background(if (selected) color.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant)
             .border(
@@ -124,7 +131,7 @@ fun ChoiceChip(
                 color = if (selected) color else ZhamTheme.extra.line,
                 shape = ZhamShapes.Pill,
             )
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -363,10 +370,11 @@ fun ZhamSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: M
     val track = if (checked) MaterialTheme.colorScheme.primary else ZhamTheme.extra.line
     Box(
         modifier
+            .minimumInteractiveComponentSize()
             .size(width = 46.dp, height = 28.dp)
             .clip(ZhamShapes.Pill)
             .background(track)
-            .clickable { onCheckedChange(!checked) },
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
         Box(

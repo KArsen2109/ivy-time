@@ -151,6 +151,8 @@ class DayViewModel @Inject constructor(
     }
 
     override fun onEvent(event: DayEvent) {
+        // A message about an earlier action should not outlive the next one.
+        if (event != DayEvent.DismissError) error.value = null
         when (event) {
             is DayEvent.ShiftDay -> selectedDay.shift(event.days)
             DayEvent.GoToToday -> selectedDay.set(LocalDate.now(clock))

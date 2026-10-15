@@ -43,8 +43,10 @@ class ZhamApplication : Application() {
     /** Re-plans the reminder alarm at start and whenever a block or tick-off changes. */
     private fun keepRemindersCurrent() {
         scope.launch {
-            combine(planRepository.observePlans(), planRepository.observeCompletions()) { _, _ -> }
-                .collect { reminderScheduler.sync() }
+            runCatching {
+                combine(planRepository.observePlans(), planRepository.observeCompletions()) { _, _ -> }
+                    .collect { runCatching { reminderScheduler.sync() } }
+            }
         }
     }
 

@@ -181,6 +181,8 @@ class TimerViewModel @Inject constructor(
     }
 
     override fun onEvent(event: TimerEvent) {
+        // A message about an earlier action should not outlive the next one.
+        error.value = null
         when (event) {
             is TimerEvent.SelectCategory -> {
                 picked.value = event.id

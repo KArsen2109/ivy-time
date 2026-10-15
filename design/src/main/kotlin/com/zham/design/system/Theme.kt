@@ -40,8 +40,9 @@ fun ZhamAppTheme(
     }
     val scheme = if (dark) {
         darkColorScheme(
-            primary = Ink.Violet,
-            onPrimary = Ink.White,
+            // A lighter violet with dark text: the saturated one is too dim on dark backgrounds.
+            primary = Ink.VioletOnDark,
+            onPrimary = Ink.Midnight,
             primaryContainer = Ink.Violet.copy(alpha = 0.22f),
             onPrimaryContainer = Ink.White,
             secondary = Ink.SlateDark,
@@ -55,7 +56,7 @@ fun ZhamAppTheme(
             outline = Ink.LineDark,
             outlineVariant = Ink.LineDark,
             error = Color_Error,
-            onError = Ink.White,
+            onError = Ink.Midnight,
         )
     } else {
         lightColorScheme(
@@ -73,7 +74,7 @@ fun ZhamAppTheme(
             onSurfaceVariant = Ink.SlateLight,
             outline = Ink.LineLight,
             outlineVariant = Ink.LineLight,
-            error = Color_Error,
+            error = Color_ErrorOnLight,
             onError = Ink.White,
         )
     }
@@ -103,3 +104,6 @@ fun ZhamAppTheme(
 }
 
 private val Color_Error = androidx.compose.ui.graphics.Color(0xFFF2537A)
+
+/** Darker than the dark-theme red so error text keeps enough contrast on a light background. */
+private val Color_ErrorOnLight = androidx.compose.ui.graphics.Color(0xFFC0264B)

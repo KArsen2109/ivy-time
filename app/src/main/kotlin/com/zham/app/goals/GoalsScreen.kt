@@ -1,5 +1,7 @@
 package com.zham.app.goals
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -186,7 +188,10 @@ private fun GoalDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "New goal" else "Edit goal") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },

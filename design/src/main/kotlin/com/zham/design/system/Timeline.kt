@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
@@ -154,7 +155,7 @@ private fun Lane(
         val hourPx = hourHeight.toPx()
         val placed = measurables.mapIndexed { index, measurable ->
             val block = blocks[index]
-            val minutes = (block.endMinutes - block.startMinutes).coerceAtLeast(12)
+            val minutes = (block.endMinutes - block.startMinutes).coerceAtLeast(20)
             val height = (minutes / 60f * hourPx).toInt().coerceAtLeast(1)
             measurable.measure(Constraints.fixed(columnWidth, height)) to block
         }
@@ -173,6 +174,8 @@ private fun Lane(
 @Composable
 private fun BlockView(block: TimelineBlock, planned: Boolean, onClick: () -> Unit) {
     val signal = ZhamTheme.extra.signal
+    // Text on a filled block must stay readable on pale colours (mustard, mint, sky) as well as dark ones.
+    val onFill = if (block.color.luminance() > 0.4f) Ink.Midnight else Color.White
     Box(
         Modifier
             .fillMaxSize()
@@ -204,7 +207,7 @@ private fun BlockView(block: TimelineBlock, planned: Boolean, onClick: () -> Uni
                 text = block.label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = if (planned) block.color else Color.White,
+                color = if (planned) MaterialTheme.colorScheme.onSurface else onFill,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -212,11 +215,7 @@ private fun BlockView(block: TimelineBlock, planned: Boolean, onClick: () -> Uni
                 Text(
                     text = block.detail,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (planned) {
-                        block.color.copy(alpha = 0.8f)
-                    } else {
-                        Color.White.copy(alpha = 0.85f)
-                    },
+                    color = if (planned) ZhamTheme.extra.slate else onFill.copy(alpha = 0.85f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

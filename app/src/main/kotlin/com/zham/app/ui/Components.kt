@@ -2,7 +2,7 @@ package com.zham.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -17,6 +17,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -72,14 +76,11 @@ fun ColorPickerRow(
     onSelect: (Color) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        colors.forEach { color ->
+    FlowRow(modifier = modifier.fillMaxWidth()) {
+        colors.forEachIndexed { index, color ->
             Box(
                 Modifier
+                    .minimumInteractiveComponentSize()
                     .size(34.dp)
                     .clip(CircleShape)
                     .background(color)
@@ -90,7 +91,12 @@ fun ColorPickerRow(
                             Modifier
                         }
                     )
-                    .clickable { onSelect(color) }
+                    .selectable(
+                        selected = color == selected,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(color) },
+                    )
+                    .semantics { contentDescription = "Colour " + (index + 1) }
             )
         }
     }
@@ -106,21 +112,18 @@ fun IconPickerRow(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    FlowRow(modifier = modifier.fillMaxWidth()) {
         keys.forEach { key ->
             Box(
                 Modifier
+                    .minimumInteractiveComponentSize()
                     .size(42.dp)
                     .clip(CircleShape)
                     .background(
                         if (key == selected) tint.copy(alpha = 0.18f)
                         else MaterialTheme.colorScheme.surfaceVariant
                     )
-                    .clickable { onSelect(key) },
+                    .selectable(selected = key == selected, role = Role.RadioButton, onClick = { onSelect(key) }),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

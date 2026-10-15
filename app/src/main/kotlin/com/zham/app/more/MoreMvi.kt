@@ -56,6 +56,7 @@ sealed interface MoreEvent {
     data class SetUse24Hours(val use24Hours: Boolean) : MoreEvent
     data class ImportCsv(val content: String) : MoreEvent
     data class ExportDone(val success: Boolean) : MoreEvent
+    data object ImportUnreadable : MoreEvent
     data object DismissMessage : MoreEvent
 }
 
@@ -120,6 +121,7 @@ class MoreViewModel @Inject constructor(
             is MoreEvent.ImportCsv -> importCsv(event.content)
             is MoreEvent.ExportDone -> message.value =
                 if (event.success) "Backup saved." else "Could not write the file."
+            MoreEvent.ImportUnreadable -> message.value = "That file could not be read."
             MoreEvent.DismissMessage -> message.value = null
         }
     }

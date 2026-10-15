@@ -154,6 +154,8 @@ class ReportsViewModel @Inject constructor(
         val projectsById = projects.associateBy { it.id }
         val days = dailyTotals(entries, range, zone, now)
         val single = dayCount == 1
+        // The average covers the days that have happened, not the rest of a period still under way.
+        val elapsedDays = (today.toEpochDay() - range.from.toEpochDay() + 1).toInt().coerceIn(1, dayCount)
 
         // A year of daily bars is unreadable, so long ranges are summed by month instead.
         val byMonth = dayCount > 92
@@ -188,7 +190,7 @@ class ReportsViewModel @Inject constructor(
             average = if (single) {
                 "${summarize(entries, from, to, now).size} categories"
             } else {
-                total.dividedBy(dayCount.toLong()).formatShort() + "/day"
+                total.dividedBy(elapsedDays.toLong()).formatShort() + "/day"
             },
             slices = summarize(entries, from, to, now).map { row ->
                 val category = categoriesById[row.categoryId]
