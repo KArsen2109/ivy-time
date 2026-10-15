@@ -1,0 +1,196 @@
+package com.zham.domain
+
+import arrow.core.left
+import arrow.core.right
+import com.zham.domain.model.Goal
+import com.zham.domain.model.GoalPeriod
+import com.zham.domain.model.GoalType
+import com.zham.domain.model.TimeEntry
+import com.zham.domain.model.TimeError
+import com.zham.domain.model.TimeRepository
+import com.zham.domain.usecase.CategoryTotal
+import com.zham.domain.usecase.Csv
+import com.zham.domain.usecase.PeriodType
+import com.zham.domain.usecase.SaveEntryUseCase
+import com.zham.domain.usecase.StartTimerUseCase
+import com.zham.domain.usecase.StopTimerUseCase
+import com.zham.domain.usecase.dailyTotals
+import com.zham.domain.usecase.formatHms
+import com.zham.domain.usecase.formatShort
+import com.zham.domain.usecase.goalProgress
+import com.zham.domain.usecase.goalRecords
+import com.zham.domain.usecase.periodRange
+import com.zham.domain.usecase.summarize
+import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.test.runTest
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import kotlin.test.Test
+
+private val T0: Instant = Instant.parse("2024-01-03T10:00:00Z") // a Wednesday
+
+private class FakeTimeRepo : TimeRepository {
+    val saved = mutableListOf<TimeEntry>()
+    override fun observeEntries(): Flow<List<TimeEntry>> = emptyFlow()
+    override suspend fun findRunning() = saved.lastOrNull { it.isRunning }
+    override suspend fun findById(id: Long) = saved.firstOrNull { it.id == id }
+    override suspend fun save(entry: TimeEntry) {
+        if (entry.id == 0L) {
+            saved += entry.copy(id = saved.size + 1L)
+        } else {
+            saved[saved.indexOfFirst { it.id == entry.id }] = entry
+        }
+    }
+    override suspend fun delete(id: Long) { saved.removeAll { it.id == id } }
+}
+
+class DomainTest {
+    private val clock = Clock.fixed(T0, ZoneOffset.UTC)
+
+    @Test
+    fun `start timer saves a running entry`() = runTest {
+        val repo = FakeTimeRepo()
+        StartTimerUseCase(repo, clock)(3, 7, " Write ") shouldBe Unit.right()
+        repo.saved.single() shouldBe TimeEntry(1, 3, 7, "Write", T0, null)
+    }
+
+    @Test
+    fun `cannot start a second timer`() = runTest {
+        val repo = FakeTimeRepo()
+        val start = StartTimerUseCase(repo, clock)
+        start(null, null, "a")
+        start(null, null, "b") shouldBe TimeError.TimerAlreadyRunning.left()
+        repo.saved.size shouldBe 1
+    }
+
+    @Test
+    fun `stop timer sets end to now`() = runTest {
+        val repo = FakeTimeRepo()
+        StartTimerUseCase(repo, clock)(null, null, "")
+        StopTimerUseCase(repo, Clock.fixed(T0.plusSeconds(90), ZoneOffset.UTC))() shouldBe Unit.right()
+        repo.saved.single().end shouldBe T0.plusSeconds(90)
+    }
+
+    @Test
+    fun `stop without timer fails`() = runTest {
+        StopTimerUseCase(FakeTimeRepo(), clock)() shouldBe TimeError.NoRunningTimer.left()
+    }
+
+    @Test
+    fun `manual entry keeps the given start and end`() = runTest {
+        val repo = FakeTimeRepo()
+        val save = SaveEntryUseCase(repo, clock)
+        val start = T0.minusSeconds(5 * 3600)
+        save(0, 1, null, "Work", start, T0) shouldBe Unit.right()
+        repo.saved.single().duration(T0) shouldBe Duration.ofHours(5)
+    }
+
+    @Test
+    fun `manual entry rejects a bad range and the future`() = runTest {
+        val save = SaveEntryUseCase(FakeTimeRepo(), clock)
+        save(0, null, null, "", T0, T0) shouldBe TimeError.EndNotAfterStart.left()
+        save(0, null, null, "", T0, T0.plusSeconds(60)) shouldBe TimeError.EndInTheFuture.left()
+    }
+
+    @Test
+    fun `summarize clips to range, counts running and sorts`() {
+        val entries = listOf(
+            TimeEntry(1, 1, null, "", T0.minusSeconds(3600), T0.plusSeconds(1800)),
+            TimeEntry(2, 2, null, "", T0.plusSeconds(3600), T0.plusSeconds(3600 + 7200)),
+            TimeEntry(3, 1, null, "", T0.plusSeconds(10_000), null),
+        )
+        summarize(entries, T0, T0.plusSeconds(100_000), T0.plusSeconds(10_100)) shouldBe listOf(
+            CategoryTotal(2, Duration.ofHours(2)),
+            CategoryTotal(1, Duration.ofSeconds(1800 + 100)),
+        )
+    }
+
+    @Test
+    fun `period ranges start on the right day`() {
+        val wednesday = LocalDate.of(2024, 1, 3)
+        periodRange(PeriodType.Week, wednesday).from shouldBe LocalDate.of(2024, 1, 1)
+        periodRange(PeriodType.Month, wednesday).from shouldBe LocalDate.of(2024, 1, 1)
+        periodRange(PeriodType.Day, wednesday).toExclusive shouldBe LocalDate.of(2024, 1, 4)
+    }
+
+    @Test
+    fun `daily totals keep empty days`() {
+        val entries = listOf(TimeEntry(1, null, null, "", T0, T0.plusSeconds(3600)))
+        val range = periodRange(PeriodType.Week, LocalDate.of(2024, 1, 3))
+        val totals = dailyTotals(entries, range, ZoneOffset.UTC, T0)
+        totals.size shouldBe 7
+        totals.first { it.first == LocalDate.of(2024, 1, 3) }.second shouldBe Duration.ofHours(1)
+        totals.first { it.first == LocalDate.of(2024, 1, 4) }.second shouldBe Duration.ZERO
+    }
+
+    @Test
+    fun `at-least goal is met only once the target is reached`() {
+        val goal = Goal(1, "Sport", 5, Duration.ofHours(3), GoalPeriod.Week, GoalType.AtLeast)
+        val entries = listOf(TimeEntry(1, 5, null, "", T0.minusSeconds(7200), T0))
+        val progress = goalProgress(goal, entries, LocalDate.of(2024, 1, 3), ZoneOffset.UTC, T0)
+        progress.spent shouldBe Duration.ofHours(2)
+        progress.met shouldBe false
+    }
+
+    @Test
+    fun `at-most goal only counts its own category`() {
+        val goal = Goal(1, "Less social", 9, Duration.ofHours(1), GoalPeriod.Week, GoalType.AtMost)
+        val entries = listOf(TimeEntry(1, 2, null, "", T0.minusSeconds(7200), T0))
+        goalProgress(goal, entries, LocalDate.of(2024, 1, 3), ZoneOffset.UTC, T0).met shouldBe true
+    }
+
+    @Test
+    fun `csv survives a round trip with commas and quotes`() {
+        val entries = listOf(TimeEntry(1, null, null, "a,b \"c\"", T0, T0.plusSeconds(60)))
+        val csv = Csv.export(entries, emptyMap(), emptyMap())
+        val rows = Csv.parse(csv)
+        rows.single().note shouldBe "a,b \"c\""
+        rows.single().start shouldBe T0
+    }
+
+    @Test
+    fun `csv import skips broken lines`() {
+        val csv = Csv.HEADER + "\nnot-a-date,,,,\n" + "${T0},,Work,,hi\n"
+        Csv.parse(csv).single().category shouldBe "Work"
+    }
+
+
+    @Test
+    fun `goal records list exactly what the goal total is made of`() {
+        val goal = Goal(1, "Sport", 5, Duration.ofHours(3), GoalPeriod.Week, GoalType.AtLeast)
+        val entries = listOf(
+            TimeEntry(1, 5, null, "Run", T0.minusSeconds(7200), T0),
+            TimeEntry(2, 5, null, "Gym", T0.minusSeconds(86_400 + 3600), T0.minusSeconds(86_400)),
+            TimeEntry(3, 2, null, "Other category", T0.minusSeconds(3600), T0),
+            TimeEntry(4, 5, null, "Last month", T0.minusSeconds(40 * 86_400), T0.minusSeconds(40 * 86_400 - 3600)),
+        )
+        val today = LocalDate.of(2024, 1, 3)
+        val records = goalRecords(goal, entries, today, ZoneOffset.UTC, T0)
+        records.map { it.entry.id } shouldBe listOf(1L, 2L)
+        records.fold(Duration.ZERO) { acc, it -> acc + it.counted } shouldBe
+            goalProgress(goal, entries, today, ZoneOffset.UTC, T0).spent
+    }
+
+    @Test
+    fun `csv keeps the description and still reads the older five column files`() {
+        val entries = listOf(
+            TimeEntry(1, null, null, "Build", T0, T0.plusSeconds(60), description = "fixed, the \"timer\" bug"),
+        )
+        Csv.parse(Csv.export(entries, emptyMap(), emptyMap())).single().description shouldBe
+            "fixed, the \"timer\" bug"
+        val old = "start,end,category,project,note\n$T0,${T0.plusSeconds(60)},Work,,hi\n"
+        Csv.parse(old).single().description shouldBe ""
+    }
+
+    @Test
+    fun `duration formatting`() {
+        Duration.ofSeconds(3725).formatHms() shouldBe "1:02:05"
+        Duration.ofMinutes(125).formatShort() shouldBe "2h 05m"
+        Duration.ofMinutes(45).formatShort() shouldBe "45m"
+    }
+}

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ivy.time.data"
+    namespace = "com.zham.data"
     compileSdk = libs.versions.compile.sdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.min.sdk.get().toInt()

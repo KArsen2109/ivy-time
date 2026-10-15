@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "IvyTime"
+rootProject.name = "Zham"
 include(":app")
 include(":design")
 include(":data")

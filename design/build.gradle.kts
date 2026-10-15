@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ivy.design"
+    namespace = "com.zham.design"
     compileSdk = libs.versions.compile.sdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.min.sdk.get().toInt()
