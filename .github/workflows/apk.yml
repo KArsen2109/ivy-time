@@ -36,7 +36,12 @@ jobs:
           lines = open("build.log", errors="replace").read().splitlines()
           wanted = [
               l for l in lines
-              if l.startswith("e: ") or ": error:" in l or l.startswith("> ")
+              if l.startswith("e: ")
+              or ": error:" in l
+              or l.startswith("FAILURE:")
+              or l.startswith("* What went wrong")
+              or "FAILED" in l
+              or l.strip().startswith("> ") and "Task :" not in l
           ]
           root = os.getcwd() + "/"
           cleaned = [l.replace("file://" + root, "").replace(root, "") for l in wanted]
