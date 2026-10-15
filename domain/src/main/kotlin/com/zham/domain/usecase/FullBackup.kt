@@ -63,6 +63,8 @@ data class BackupData(
         val targetMinutes: Long,
         val period: GoalPeriod,
         val type: GoalType,
+        val project: String = "",
+        val matchTitle: Boolean = false,
     )
 
     val isEmpty: Boolean
@@ -126,6 +128,8 @@ object FullBackup {
                     "targetMinutes" to it.targetMinutes,
                     "period" to it.period.name,
                     "type" to it.type.name,
+                    "project" to it.project,
+                    "matchTitle" to it.matchTitle,
                 )
             },
         )
@@ -211,6 +215,8 @@ object FullBackup {
                         ?: return@mapNotNull null,
                     type = GoalType.entries.firstOrNull { t -> t.name == it.str("type") }
                         ?: return@mapNotNull null,
+                    project = it.str("project"),
+                    matchTitle = it["matchTitle"] == true,
                 )
             },
         )
@@ -260,6 +266,7 @@ class BuildBackupUseCase @Inject constructor(
             goals = goals.map {
                 BackupData.GoalItem(
                     it.name, categoryNames[it.categoryId].orEmpty(), it.target.toMinutes(), it.period, it.type,
+                    projectNames[it.projectId].orEmpty(), it.matchTitle,
                 )
             },
         )
@@ -385,6 +392,8 @@ class RestoreBackupUseCase @Inject constructor(
             val goal = Goal(
                 0, item.name, categoryId(item.category).takeIf { item.category.isNotBlank() },
                 Duration.ofMinutes(item.targetMinutes), item.period, item.type,
+                projectId = projectId(item.category, item.project),
+                matchTitle = item.matchTitle,
             )
             if (knownGoals.add(goal)) {
                 goalRepository.save(goal)

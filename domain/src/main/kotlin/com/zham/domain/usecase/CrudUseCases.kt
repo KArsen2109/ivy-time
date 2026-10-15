@@ -57,10 +57,20 @@ class SaveGoalUseCase @Inject constructor(
         target: Duration,
         period: GoalPeriod,
         type: GoalType,
+        projectId: Long? = null,
+        matchTitle: Boolean = false,
     ): Either<TimeError, Unit> {
         if (name.isBlank()) return TimeError.BlankName.left()
         if (target.isZero || target.isNegative) return TimeError.NonPositiveDuration.left()
-        repository.save(Goal(id, name.trim(), categoryId, target, period, type))
+        // A project or a title only narrows a category, so without one there is nothing to narrow.
+        val narrowed = categoryId != null
+        repository.save(
+            Goal(
+                id, name.trim(), categoryId, target, period, type,
+                projectId = projectId.takeIf { narrowed },
+                matchTitle = matchTitle && narrowed && projectId == null,
+            )
+        )
         return Unit.right()
     }
 }

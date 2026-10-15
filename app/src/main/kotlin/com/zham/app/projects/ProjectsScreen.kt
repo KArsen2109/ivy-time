@@ -224,7 +224,7 @@ private fun ProjectCard(project: ProjectItem, onClick: () -> Unit, onDelete: () 
                 )
             }
             val askDelete = rememberDeleteConfirm(
-                "Delete this project?", "Records and blocks keep their time but lose the project.", onDelete,
+                "Delete this project?", "Records and blocks keep their time but lose the project. Goals set on it are deleted.", onDelete,
             )
             IconButton(onClick = askDelete) {
                 Icon(Icons.Rounded.Delete, contentDescription = "Delete project")

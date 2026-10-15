@@ -69,6 +69,8 @@ data class GoalEntity(
     val minutes: Long,
     val period: String,
     val type: String,
+    val projectId: Long? = null,
+    val matchTitle: Boolean = false,
 ) {
     fun toDomain() = Goal(
         id = id,
@@ -77,6 +79,8 @@ data class GoalEntity(
         target = Duration.ofMinutes(minutes),
         period = parseEnum(period, GoalPeriod.Week),
         type = parseEnum(type, GoalType.AtLeast),
+        projectId = projectId,
+        matchTitle = matchTitle,
     )
 }
 
@@ -101,6 +105,8 @@ fun Goal.toEntity() = GoalEntity(
     minutes = target.toMinutes(),
     period = period.name,
     type = type.name,
+    projectId = projectId,
+    matchTitle = matchTitle,
 )
 
 /** Falls back instead of throwing, so a hand-edited database cannot crash the app. */

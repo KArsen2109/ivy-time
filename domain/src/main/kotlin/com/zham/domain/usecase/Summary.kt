@@ -98,6 +98,19 @@ private fun clip(
     if (end.isAfter(start)) entry to (start to end) else null
 }
 
+/**
+ * Whether [entry] counts toward this goal: its project when the goal has one, otherwise records of
+ * the category whose title matches the goal's name when [Goal.matchTitle] is set, otherwise the
+ * whole category (or everything, for a goal without a category).
+ */
+fun Goal.counts(entry: TimeEntry): Boolean = when {
+    projectId != null -> entry.projectId == projectId
+    categoryId == null -> true
+    entry.categoryId != categoryId -> false
+    matchTitle -> entry.note.trim().equals(name.trim(), ignoreCase = true)
+    else -> true
+}
+
 data class GoalProgress(
     val goal: Goal,
     val spent: Duration,
@@ -119,7 +132,7 @@ fun goalProgress(
         anchor = today,
         weekStart = weekStart,
     )
-    val relevant = entries.filter { goal.categoryId == null || it.categoryId == goal.categoryId }
+    val relevant = entries.filter(goal::counts)
     val spent = totalIn(relevant, range.startInstant(zone), range.endInstant(zone), now)
     val fraction = spent.toMillis().toFloat() / goal.target.toMillis().coerceAtLeast(1)
     return GoalProgress(
@@ -167,7 +180,7 @@ fun goalRecords(
     val from = range.startInstant(zone)
     val to = range.endInstant(zone)
     return entries
-        .filter { goal.categoryId == null || it.categoryId == goal.categoryId }
+        .filter(goal::counts)
         .mapNotNull { entry ->
             val start = maxOf(entry.start, from)
             val end = minOf(entry.end ?: now, to)

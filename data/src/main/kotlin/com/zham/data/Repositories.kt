@@ -60,6 +60,8 @@ internal class RoomProjectRepository(
     override suspend fun delete(id: Long) = db.withTransaction {
         db.timeEntryDao().detachProject(id)
         db.planDao().detachProject(id)
+        // A goal that followed this project has nothing left to count.
+        db.goalDao().deleteByProject(id)
         db.projectDao().delete(id)
     }
 }

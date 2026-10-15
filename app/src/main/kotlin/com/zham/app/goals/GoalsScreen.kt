@@ -145,8 +145,9 @@ fun GoalsUi(state: GoalsState, onEvent: (GoalsEvent) -> Unit, modifier: Modifier
             initial = edited,
             categories = state.categories,
             onDismiss = { dialogVisible = false },
-            onSave = { id, name, categoryId, minutes, period, type ->
-                onEvent(GoalsEvent.Save(id, name, categoryId, minutes, period, type))
+            projects = state.projects,
+            onSave = { id, name, categoryId, minutes, period, type, projectId, matchTitle ->
+                onEvent(GoalsEvent.Save(id, name, categoryId, minutes, period, type, projectId, matchTitle))
                 dialogVisible = false
             },
         )
@@ -157,11 +158,22 @@ fun GoalsUi(state: GoalsState, onEvent: (GoalsEvent) -> Unit, modifier: Modifier
 private fun GoalDialog(
     initial: GoalItem?,
     categories: List<PickerItem>,
+    projects: List<GoalProject>,
     onDismiss: () -> Unit,
-    onSave: (Long, String, Long?, Long, GoalPeriod, GoalType) -> Unit,
+    onSave: (Long, String, Long?, Long, GoalPeriod, GoalType, Long?, Boolean) -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var categoryId by remember { mutableStateOf(initial?.categoryId) }
+    var scope by remember {
+        mutableStateOf(
+            when {
+                initial?.projectId != null -> GoalScope.Project
+                initial?.matchTitle == true -> GoalScope.Title
+                else -> GoalScope.Category
+            }
+        )
+    }
+    var projectId by remember { mutableStateOf(initial?.projectId) }
     var hoursText by remember {
         mutableStateOf(((initial?.minutes ?: 300L) / 60).toString())
     }
@@ -186,8 +198,63 @@ private fun GoalDialog(
                     PickerRow(
                         items = categories,
                         selectedId = categoryId,
-                        onSelect = { categoryId = it },
+                        onSelect = { picked ->
+                            if (picked != categoryId) projectId = null
+                            categoryId = picked
+                            // A new goal in a category should follow one thing in it, not all of it.
+                            if (initial == null && picked != null && scope == GoalScope.Category) {
+                                scope = if (projects.any { it.categoryId == picked }) {
+                                    GoalScope.Project
+                                } else {
+                                    GoalScope.Title
+                                }
+                            }
+                        },
                     )
+                }
+                val inCategory = projects.filter { it.categoryId == categoryId }
+                if (categoryId != null) {
+                    Text("Counts", style = MaterialTheme.typography.labelMedium, color = ZhamTheme.extra.slate)
+                    Segmented(
+                        options = GoalScope.entries,
+                        selected = scope,
+                        label = {
+                            when (it) {
+                                GoalScope.Category -> "Whole category"
+                                GoalScope.Project -> "A project"
+                                GoalScope.Title -> "By title"
+                            }
+                        },
+                        onSelect = { scope = it },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    when (scope) {
+                        GoalScope.Category -> Text(
+                            "Every record in this category counts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ZhamTheme.extra.slate,
+                        )
+                        GoalScope.Project ->
+                            if (inCategory.isEmpty()) {
+                                Text(
+                                    "This category has no projects yet. Add one in More, under Projects.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = ZhamTheme.extra.slate,
+                                )
+                            } else {
+                                PickerRow(
+                                    items = inCategory.map { PickerItem(it.id, it.name, it.color) },
+                                    selectedId = projectId,
+                                    onSelect = { projectId = it },
+                                )
+                            }
+                        GoalScope.Title -> Text(
+                            "Only records in this category titled \"" + name.trim() + "\" count. " +
+                                "Give your records that title.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ZhamTheme.extra.slate,
+                        )
+                    }
                 }
                 OutlinedTextField(
                     value = hoursText,
@@ -215,12 +282,21 @@ private fun GoalDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = name.isNotBlank() && hours != null,
+                enabled = name.isNotBlank() && hours != null &&
+                    (categoryId == null || scope != GoalScope.Project || projectId != null),
                 onClick = {
-                    onSave(initial?.id ?: 0L, name, categoryId, (hours ?: 0L) * 60, period, type)
+                    val narrowed = categoryId != null
+                    onSave(
+                        initial?.id ?: 0L, name, categoryId, (hours ?: 0L) * 60, period, type,
+                        projectId.takeIf { narrowed && scope == GoalScope.Project },
+                        narrowed && scope == GoalScope.Title,
+                    )
                 },
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/** What a goal with a category counts: all of it, one project, or records with the goal's title. */
+private enum class GoalScope { Category, Project, Title }

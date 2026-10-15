@@ -54,6 +54,10 @@ data class Goal(
     val target: Duration,
     val period: GoalPeriod,
     val type: GoalType,
+    /** When set, only records of this project count. Wins over [matchTitle]. */
+    val projectId: Long? = null,
+    /** When set, only records in the category titled like the goal count. */
+    val matchTitle: Boolean = false,
 )
 
 sealed interface TimeError {

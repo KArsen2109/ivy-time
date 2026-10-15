@@ -73,6 +73,9 @@ interface GoalDao {
 
     @Query("DELETE FROM goals WHERE categoryId = :categoryId")
     suspend fun deleteByCategory(categoryId: Long)
+
+    @Query("DELETE FROM goals WHERE projectId = :projectId")
+    suspend fun deleteByProject(projectId: Long)
 }
 
 @Database(
@@ -84,7 +87,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -140,5 +143,13 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE plan_blocks ADD COLUMN reminderMinutes INTEGER")
+    }
+}
+
+/** 5 to 6 lets a goal follow one project or one title; existing goals keep counting their category. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE goals ADD COLUMN projectId INTEGER")
+        db.execSQL("ALTER TABLE goals ADD COLUMN matchTitle INTEGER NOT NULL DEFAULT 0")
     }
 }
