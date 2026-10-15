@@ -50,7 +50,9 @@ fun IvyCard(
 fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        modifier = modifier.padding(horizontal = Spacing.Gutter, top = 24.dp, bottom = 10.dp),
+        modifier = modifier
+            .padding(horizontal = Spacing.Gutter)
+            .padding(top = 24.dp, bottom = 10.dp),
         style = MaterialTheme.typography.titleSmall,
         color = IvyTheme.extra.slate,
     )
