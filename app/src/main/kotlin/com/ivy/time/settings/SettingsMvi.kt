@@ -16,7 +16,7 @@ import com.ivy.time.domain.model.TimeEntry
 import com.ivy.time.domain.model.TimeRepository
 import com.ivy.time.domain.usecase.Csv
 import com.ivy.time.ui.ComposeViewModel
-import com.ivy.time.ui.IvyPalette
+import com.ivy.design.system.CategoryPalette
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -114,7 +114,7 @@ class SettingsViewModel @Inject constructor(
                             Category(
                                 id = 0,
                                 name = name,
-                                color = IvyPalette[categories.size % IvyPalette.size].toArgb(),
+                                color = CategoryPalette[categories.size % CategoryPalette.size].toArgb(),
                                 icon = "other",
                                 orderNum = categories.size.toDouble(),
                             )

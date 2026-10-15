@@ -5,14 +5,16 @@ import com.ivy.time.domain.model.Category
 import com.ivy.time.domain.model.CategoryRepository
 import com.ivy.time.domain.model.Goal
 import com.ivy.time.domain.model.GoalRepository
-import com.ivy.time.domain.model.PlannedEntry
-import com.ivy.time.domain.model.PlannedRepository
+import com.ivy.time.domain.model.PlanBlock
+import com.ivy.time.domain.model.PlanCompletion
+import com.ivy.time.domain.model.PlanRepository
 import com.ivy.time.domain.model.Project
 import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.TimeEntry
 import com.ivy.time.domain.model.TimeRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 internal class RoomTimeRepository(
     private val dao: TimeEntryDao,
@@ -40,7 +42,7 @@ internal class RoomCategoryRepository(
 
     override suspend fun delete(id: Long) = db.withTransaction {
         db.timeEntryDao().detachCategory(id)
-        db.plannedDao().detachCategory(id)
+        db.planDao().detachCategory(id)
         db.projectDao().detachCategory(id)
         db.goalDao().deleteByCategory(id)
         db.categoryDao().delete(id)
@@ -57,22 +59,9 @@ internal class RoomProjectRepository(
 
     override suspend fun delete(id: Long) = db.withTransaction {
         db.timeEntryDao().detachProject(id)
-        db.plannedDao().detachProject(id)
+        db.planDao().detachProject(id)
         db.projectDao().delete(id)
     }
-}
-
-internal class RoomPlannedRepository(
-    private val dao: PlannedDao,
-) : PlannedRepository {
-    override fun observePlanned(): Flow<List<PlannedEntry>> =
-        dao.observeAll().map { list -> list.map { it.toDomain() } }
-
-    override suspend fun findById(id: Long): PlannedEntry? = dao.findById(id)?.toDomain()
-
-    override suspend fun save(planned: PlannedEntry) = dao.save(planned.toEntity())
-
-    override suspend fun delete(id: Long) = dao.delete(id)
 }
 
 internal class RoomGoalRepository(
@@ -84,4 +73,31 @@ internal class RoomGoalRepository(
     override suspend fun save(goal: Goal) = dao.save(goal.toEntity())
 
     override suspend fun delete(id: Long) = dao.delete(id)
+}
+
+internal class RoomPlanRepository(
+    private val dao: PlanDao,
+) : PlanRepository {
+    override fun observePlans(): Flow<List<PlanBlock>> =
+        dao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    override fun observeCompletions(): Flow<List<PlanCompletion>> =
+        dao.observeCompletions().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun findById(id: Long): PlanBlock? = dao.findById(id)?.toDomain()
+
+    override suspend fun save(plan: PlanBlock) = dao.save(plan.toEntity())
+
+    override suspend fun delete(id: Long) {
+        dao.deleteCompletions(id)
+        dao.delete(id)
+    }
+
+    override suspend fun setCompleted(planId: Long, date: LocalDate, completed: Boolean) {
+        if (completed) {
+            dao.complete(PlanCompletionEntity(planId, date.toEpochDay()))
+        } else {
+            dao.uncomplete(planId, date.toEpochDay())
+        }
+    }
 }

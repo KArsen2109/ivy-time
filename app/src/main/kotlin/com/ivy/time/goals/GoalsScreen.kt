@@ -11,14 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,17 +35,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ivy.design.system.GradientCircleButton
+import com.ivy.design.system.EmptyNote
 import com.ivy.design.system.IvyCard
-import com.ivy.design.system.IvyGradients
-import com.ivy.design.system.IvyProgressBar
-import com.ivy.design.system.colors.IvyColors
+import com.ivy.design.system.IvyTheme
+import com.ivy.design.system.MeterBar
+import com.ivy.design.system.ScreenHeading
+import com.ivy.design.system.Segmented
+import com.ivy.design.system.Spacing
 import com.ivy.time.domain.model.GoalPeriod
 import com.ivy.time.domain.model.GoalType
-import com.ivy.time.ui.EmptyHint
 import com.ivy.time.ui.PickerItem
 import com.ivy.time.ui.PickerRow
-import com.ivy.time.ui.ScreenTitle
 
 @Composable
 fun GoalsScreen(modifier: Modifier = Modifier) {
@@ -60,86 +58,81 @@ fun GoalsUi(state: GoalsState, onEvent: (GoalsEvent) -> Unit, modifier: Modifier
     var edited by remember { mutableStateOf<GoalItem?>(null) }
     var dialogVisible by remember { mutableStateOf(false) }
 
-    Box(modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
-        ) {
-            item { ScreenTitle("Goals") }
-            if (state.goals.isEmpty()) {
-                item {
-                    EmptyHint(
-                        "Set how much time a category deserves: at least 5h of Sport per week, " +
-                            "at most 3h of Social. Ivy Wallet calls these budgets."
-                    )
-                }
-            }
-            items(state.goals, key = { it.id }) { goal ->
-                IvyCard(
-                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 40.dp),
+    ) {
+        item {
+            ScreenHeading("Goals") {
+                IconButton(
                     onClick = {
-                        edited = goal
+                        edited = null
                         dialogVisible = true
-                    },
+                    }
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                goal.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                goal.subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                        }
-                        IconButton(onClick = { onEvent(GoalsEvent.Delete(goal.id)) }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Delete goal")
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    IvyProgressBar(
-                        fraction = goal.fraction,
-                        color = if (goal.met) IvyColors.Green.primary else goal.color,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            goal.progressLabel,
-                            Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            if (goal.met) "on track" else "not yet",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (goal.met) IvyColors.Green.primary else MaterialTheme.colorScheme.outline,
-                        )
-                    }
+                    Icon(Icons.Rounded.Add, contentDescription = "New goal")
                 }
             }
-            state.error?.let { message ->
-                item {
+            if (state.goals.isEmpty()) {
+                EmptyNote(
+                    "Hold a category to a target: at least 5h of Sport a week, " +
+                        "at most 3h of Social."
+                )
+            }
+        }
+        items(state.goals, key = { it.id }) { goal ->
+            IvyCard(
+                Modifier.padding(horizontal = Spacing.Gutter, vertical = 5.dp),
+                onClick = {
+                    edited = goal
+                    dialogVisible = true
+                },
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(goal.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            goal.subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = IvyTheme.extra.slate,
+                        )
+                    }
+                    IconButton(onClick = { onEvent(GoalsEvent.Delete(goal.id)) }) {
+                        Icon(Icons.Rounded.Delete, contentDescription = "Delete goal")
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                MeterBar(
+                    fraction = goal.fraction,
+                    color = if (goal.met) MaterialTheme.colorScheme.primary else goal.color,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        goal.progressLabel,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        if (goal.met) "on track" else "behind",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (goal.met) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            IvyTheme.extra.slate
+                        },
                     )
                 }
             }
         }
-
-        GradientCircleButton(
-            colors = IvyGradients.Ivy,
-            onClick = {
-                edited = null
-                dialogVisible = true
-            },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-        ) {
-            Icon(Icons.Rounded.Add, contentDescription = "New goal", tint = Color.White)
+        state.error?.let { message ->
+            item {
+                Text(
+                    message,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+                )
+            }
         }
     }
 
@@ -183,6 +176,7 @@ private fun GoalDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                 )
                 if (categories.isNotEmpty()) {
                     PickerRow(
@@ -196,28 +190,23 @@ private fun GoalDialog(
                     onValueChange = { hoursText = it.filter(Char::isDigit).take(3) },
                     label = { Text("Hours") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(GoalType.entries.toList()) { option ->
-                        FilterChip(
-                            selected = type == option,
-                            onClick = { type = option },
-                            label = {
-                                Text(if (option == GoalType.AtLeast) "At least" else "At most")
-                            },
-                        )
-                    }
-                }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(GoalPeriod.entries.toList()) { option ->
-                        FilterChip(
-                            selected = period == option,
-                            onClick = { period = option },
-                            label = { Text("Per " + option.name.lowercase()) },
-                        )
-                    }
-                }
+                Segmented(
+                    options = GoalType.entries,
+                    selected = type,
+                    label = { if (it == GoalType.AtLeast) "At least" else "At most" },
+                    onSelect = { type = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Segmented(
+                    options = GoalPeriod.entries,
+                    selected = period,
+                    label = { "Per " + it.name.lowercase() },
+                    onSelect = { period = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         },
         confirmButton = {

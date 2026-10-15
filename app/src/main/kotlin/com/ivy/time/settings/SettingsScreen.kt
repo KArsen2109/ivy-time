@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -19,10 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ivy.design.system.SectionTitle
+import com.ivy.design.system.ScreenHeading
+import com.ivy.design.system.SectionLabel
+import com.ivy.design.system.Segmented
+import com.ivy.design.system.SettingRow
+import com.ivy.design.system.Spacing
 import com.ivy.time.data.ThemeMode
-import com.ivy.time.ui.ScreenTitle
-import com.ivy.time.ui.SettingRow
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 
@@ -75,38 +76,28 @@ fun SettingsUi(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(bottom = 40.dp),
     ) {
         item {
-            ScreenTitle("Settings")
+            ScreenHeading("Settings")
 
-            SectionTitle("Theme")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ThemeMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = state.theme == mode,
-                        onClick = { onEvent(SettingsEvent.SetTheme(mode)) },
-                        label = { Text(if (mode == ThemeMode.AmoledDark) "Amoled" else mode.name) },
-                    )
-                }
-            }
+            SectionLabel("Theme")
+            Segmented(
+                options = ThemeMode.entries,
+                selected = state.theme,
+                label = { if (it == ThemeMode.AmoledDark) "Amoled" else it.name },
+                onSelect = { onEvent(SettingsEvent.SetTheme(it)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
+            )
 
-            SectionTitle("Week starts on")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(DayOfWeek.MONDAY, DayOfWeek.SUNDAY).forEach { day ->
-                    FilterChip(
-                        selected = state.weekStart == day,
-                        onClick = { onEvent(SettingsEvent.SetWeekStart(day)) },
-                        label = { Text(day.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                    )
-                }
-            }
+            SectionLabel("Week starts on")
+            Segmented(
+                options = listOf(DayOfWeek.MONDAY, DayOfWeek.SUNDAY),
+                selected = state.weekStart,
+                label = { it.name.lowercase().replaceFirstChar(Char::uppercase) },
+                onSelect = { onEvent(SettingsEvent.SetWeekStart(it)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
+            )
 
             SettingRow(
                 title = "24-hour time",
@@ -120,7 +111,7 @@ fun SettingsUi(
                 },
             )
 
-            SectionTitle("Backup")
+            SectionLabel("Backup")
             SettingRow(
                 title = "Export to CSV",
                 subtitle = "${state.entryCount} records",
@@ -137,14 +128,14 @@ fun SettingsUi(
                     message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
                 )
             }
 
-            SectionTitle("About")
+            SectionLabel("About")
             SettingRow(
                 title = "Ivy Time",
-                subtitle = "Open source time tracker built like Ivy Wallet",
+                subtitle = "An open source planner and time tracker",
                 onClick = null,
             )
         }

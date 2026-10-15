@@ -2,7 +2,7 @@ package com.ivy.time
 
 import android.app.Application
 import androidx.compose.ui.graphics.toArgb
-import com.ivy.design.system.colors.IvyColors
+import com.ivy.design.system.CategoryPalette
 import com.ivy.time.data.SettingsStore
 import com.ivy.time.domain.model.Category
 import com.ivy.time.domain.model.CategoryRepository
@@ -43,17 +43,17 @@ class IvyTimeApp : Application() {
     }
 
     private fun defaultCategories(): List<Category> = listOf(
-        Triple("Work", IvyColors.Purple.primary, "work"),
-        Triple("Study", IvyColors.Blue.primary, "study"),
-        Triple("Sport", IvyColors.Green.primary, "sport"),
-        Triple("Rest", IvyColors.Orange.primary, "rest"),
-        Triple("Social", IvyColors.Pink.primary, "social"),
-        Triple("Chores", IvyColors.Yellow.primary, "home"),
-    ).mapIndexed { index, (name, color, icon) ->
+        "Work" to "work",
+        "Study" to "study",
+        "Sport" to "sport",
+        "Rest" to "rest",
+        "Social" to "social",
+        "Chores" to "home",
+    ).mapIndexed { index, (name, icon) ->
         Category(
             id = 0,
             name = name,
-            color = color.toArgb(),
+            color = CategoryPalette[index % CategoryPalette.size].toArgb(),
             icon = icon,
             orderNum = index.toDouble(),
         )

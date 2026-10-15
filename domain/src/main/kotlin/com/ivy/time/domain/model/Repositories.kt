@@ -24,13 +24,6 @@ interface ProjectRepository {
     suspend fun delete(id: Long)
 }
 
-interface PlannedRepository {
-    fun observePlanned(): Flow<List<PlannedEntry>>
-    suspend fun findById(id: Long): PlannedEntry?
-    suspend fun save(planned: PlannedEntry)
-    suspend fun delete(id: Long)
-}
-
 interface GoalRepository {
     fun observeGoals(): Flow<List<Goal>>
     suspend fun save(goal: Goal)

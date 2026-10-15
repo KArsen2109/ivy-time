@@ -40,20 +40,6 @@ data class TimeEntry(
     fun duration(now: Instant): Duration = Duration.between(start, end ?: now)
 }
 
-enum class Recurrence { OneTime, Daily, Weekly, Monthly }
-
-/** Time you plan to spend (the Planned Payment of Ivy Wallet). */
-data class PlannedEntry(
-    val id: Long,
-    val categoryId: Long?,
-    val projectId: Long?,
-    val note: String,
-    val duration: Duration,
-    val date: LocalDate,
-    val time: LocalTime,
-    val recurrence: Recurrence,
-)
-
 enum class GoalPeriod { Week, Month }
 
 /** Spend at least, or at most, [target] on a category (the Budget of Ivy Wallet). */
@@ -76,4 +62,6 @@ sealed interface TimeError {
     data object EndInTheFuture : TimeError
     data object BlankName : TimeError
     data object NonPositiveDuration : TimeError
+    data object NoWeekdaysChosen : TimeError
+    data object PlanNotFound : TimeError
 }

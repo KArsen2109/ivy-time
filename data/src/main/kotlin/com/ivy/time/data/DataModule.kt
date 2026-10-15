@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.ivy.time.domain.model.CategoryRepository
 import com.ivy.time.domain.model.GoalRepository
-import com.ivy.time.domain.model.PlannedRepository
+import com.ivy.time.domain.model.PlanRepository
 import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.TimeRepository
 import dagger.Module
@@ -43,8 +43,7 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun plannedRepository(db: IvyTimeDatabase): PlannedRepository =
-        RoomPlannedRepository(db.plannedDao())
+    fun planRepository(db: IvyTimeDatabase): PlanRepository = RoomPlanRepository(db.planDao())
 
     @Provides
     @Singleton

@@ -1,0 +1,252 @@
+package com.ivy.time.plan
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.ivy.design.system.ChoiceChip
+import com.ivy.design.system.EmptyNote
+import com.ivy.design.system.FieldButton
+import com.ivy.design.system.PrimaryButton
+import com.ivy.design.system.SectionLabel
+import com.ivy.design.system.Segmented
+import com.ivy.design.system.Spacing
+import com.ivy.time.ui.IvyDatePickerDialog
+import com.ivy.time.ui.IvyTimePickerDialog
+import com.ivy.time.ui.PickerRow
+import java.time.DayOfWeek
+
+private val LENGTHS = listOf(15L, 30L, 45L, 60L, 90L, 120L, 180L, 240L)
+
+@Composable
+fun PlanEditorScreen(onClose: () -> Unit, modifier: Modifier = Modifier) {
+    val viewModel: PlanEditorViewModel = hiltViewModel()
+    val state = viewModel.uiState()
+
+    LaunchedEffect(viewModel.finished) {
+        if (viewModel.finished) onClose()
+    }
+
+    PlanEditorUi(state, viewModel::onEvent, onClose, modifier)
+}
+
+@Composable
+fun PlanEditorUi(
+    state: PlanEditorState,
+    onEvent: (PlanEditorEvent) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var datePicker by remember { mutableStateOf(false) }
+    var startPicker by remember { mutableStateOf(false) }
+    var endPicker by remember { mutableStateOf(false) }
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 40.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                text = if (state.editing) "Edit block" else "Plan a block",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (state.editing) {
+                IconButton(onClick = { onEvent(PlanEditorEvent.Delete) }) {
+                    Icon(Icons.Rounded.Delete, contentDescription = "Delete block")
+                }
+            }
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            FieldButton(
+                label = "Starts",
+                value = state.startLabel,
+                onClick = { startPicker = true },
+                modifier = Modifier.weight(1f),
+            )
+            FieldButton(
+                label = if (state.crossesMidnight) "Ends next day" else "Ends",
+                value = state.endLabel,
+                onClick = { endPicker = true },
+                modifier = Modifier.weight(1f),
+            )
+            FieldButton(
+                label = "Length",
+                value = state.durationLabel,
+                onClick = { endPicker = true },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = Spacing.Gutter),
+        ) {
+            items(LENGTHS) { minutes ->
+                ChoiceChip(
+                    label = if (minutes >= 60) {
+                        if (minutes % 60 == 0L) "${minutes / 60}h" else "${minutes / 60}h ${minutes % 60}m"
+                    } else {
+                        "${minutes}m"
+                    },
+                    selected = false,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = { onEvent(PlanEditorEvent.SetLength(minutes)) },
+                )
+            }
+        }
+
+        SectionLabel("Category")
+        if (state.categories.isEmpty()) {
+            EmptyNote("No categories yet. Add them in More.")
+        } else {
+            PickerRow(
+                items = state.categories,
+                selectedId = state.categoryId,
+                onSelect = { onEvent(PlanEditorEvent.SelectCategory(it)) },
+            )
+        }
+
+        if (state.projects.isNotEmpty()) {
+            SectionLabel("Project")
+            PickerRow(
+                items = state.projects,
+                selectedId = state.projectId,
+                onSelect = { onEvent(PlanEditorEvent.SelectProject(it)) },
+            )
+        }
+
+        OutlinedTextField(
+            value = state.note,
+            onValueChange = { onEvent(PlanEditorEvent.SetNote(it)) },
+            label = { Text("What is this block for?") },
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter, vertical = 16.dp),
+        )
+
+        SectionLabel("Repeats")
+        Segmented(
+            options = RepeatChoice.entries,
+            selected = state.repeat,
+            label = { it.name },
+            onSelect = { onEvent(PlanEditorEvent.SetRepeat(it)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter),
+        )
+
+        if (state.repeat == RepeatChoice.Weekly) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.Gutter),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                DayOfWeek.entries.forEach { day ->
+                    ChoiceChip(
+                        label = day.name.take(1),
+                        selected = day in state.weekdays,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = { onEvent(PlanEditorEvent.ToggleWeekday(day)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        FieldButton(
+            label = if (state.repeat == RepeatChoice.Once) "On" else "Starting",
+            value = state.dateLabel,
+            onClick = { datePicker = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter),
+        )
+
+        state.error?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+        PrimaryButton(
+            text = "Save block",
+            onClick = { onEvent(PlanEditorEvent.Save) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter),
+        )
+    }
+
+    if (datePicker) {
+        IvyDatePickerDialog(
+            initial = state.date,
+            onDismiss = { datePicker = false },
+            onPick = { onEvent(PlanEditorEvent.SetDate(it)) },
+        )
+    }
+    if (startPicker) {
+        IvyTimePickerDialog(
+            initial = state.start,
+            use24Hours = state.use24Hours,
+            onDismiss = { startPicker = false },
+            onPick = { onEvent(PlanEditorEvent.SetStart(it)) },
+        )
+    }
+    if (endPicker) {
+        IvyTimePickerDialog(
+            initial = state.end,
+            use24Hours = state.use24Hours,
+            onDismiss = { endPicker = false },
+            onPick = { onEvent(PlanEditorEvent.SetEnd(it)) },
+        )
+    }
+}

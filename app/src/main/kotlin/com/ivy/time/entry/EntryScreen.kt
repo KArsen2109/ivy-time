@@ -16,8 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,9 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.ivy.design.system.SectionTitle
-import com.ivy.time.ui.EmptyHint
-import com.ivy.time.ui.FieldButton
+import com.ivy.design.system.ChoiceChip
+import com.ivy.design.system.EmptyNote
+import com.ivy.design.system.FieldButton
+import com.ivy.design.system.PrimaryButton
+import com.ivy.design.system.SectionLabel
+import com.ivy.design.system.Spacing
 import com.ivy.time.ui.IvyDatePickerDialog
 import com.ivy.time.ui.IvyTimePickerDialog
 import com.ivy.time.ui.PickerRow
@@ -77,9 +78,8 @@ fun EntryUi(
                 Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
             }
             Text(
-                text = if (state.editing) "Edit record" else "New record",
+                text = if (state.editing) "Edit record" else "Log time",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold,
                 modifier = Modifier.weight(1f),
             )
             if (state.editing) {
@@ -89,9 +89,9 @@ fun EntryUi(
             }
         }
 
-        SectionTitle("Category")
+        SectionLabel("Category")
         if (state.categories.isEmpty()) {
-            EmptyHint("No categories yet. Create them in More → Categories.")
+            EmptyNote("No categories yet. Add them in More.")
         } else {
             PickerRow(
                 items = state.categories,
@@ -101,7 +101,7 @@ fun EntryUi(
         }
 
         if (state.projects.isNotEmpty()) {
-            SectionTitle("Project")
+            SectionLabel("Project")
             PickerRow(
                 items = state.projects,
                 selectedId = state.projectId,
@@ -114,11 +114,12 @@ fun EntryUi(
             onValueChange = { onEvent(EntryEvent.SetNote(it)) },
             label = { Text("Note") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 12.dp),
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FieldButton(
@@ -130,7 +131,7 @@ fun EntryUi(
         }
         Spacer(Modifier.height(12.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FieldButton(
@@ -151,21 +152,21 @@ fun EntryUi(
             text = state.durationLabel,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 16.dp),
         )
 
-        SectionTitle("Quick duration")
+        SectionLabel("Quick length")
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
         ) {
             items(QUICK_MINUTES) { minutes ->
-                AssistChip(
+                ChoiceChip(
+                    label = if (minutes >= 60) "${minutes / 60}h" else "${minutes}m",
+                    selected = false,
+                    color = MaterialTheme.colorScheme.primary,
                     onClick = { onEvent(EntryEvent.SetDuration(minutes)) },
-                    label = {
-                        Text(if (minutes >= 60) "${minutes / 60}h" else "${minutes}m")
-                    },
                 )
             }
         }
@@ -175,16 +176,15 @@ fun EntryUi(
                 text = it,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
             )
         }
 
-        Button(
+        PrimaryButton(
+            text = "Save record",
             onClick = { onEvent(EntryEvent.Save) },
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-        ) {
-            Text("Save")
-        }
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 16.dp),
+        )
     }
 
     if (datePickerVisible) {

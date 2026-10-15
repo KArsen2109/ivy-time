@@ -59,27 +59,6 @@ interface ProjectDao {
 }
 
 @Dao
-interface PlannedDao {
-    @Query("SELECT * FROM planned_entries ORDER BY epochDay, secondOfDay")
-    fun observeAll(): Flow<List<PlannedEntryEntity>>
-
-    @Query("SELECT * FROM planned_entries WHERE id = :id")
-    suspend fun findById(id: Long): PlannedEntryEntity?
-
-    @Upsert
-    suspend fun save(planned: PlannedEntryEntity)
-
-    @Query("DELETE FROM planned_entries WHERE id = :id")
-    suspend fun delete(id: Long)
-
-    @Query("UPDATE planned_entries SET categoryId = NULL WHERE categoryId = :categoryId")
-    suspend fun detachCategory(categoryId: Long)
-
-    @Query("UPDATE planned_entries SET projectId = NULL WHERE projectId = :projectId")
-    suspend fun detachProject(projectId: Long)
-}
-
-@Dao
 interface GoalDao {
     @Query("SELECT * FROM goals ORDER BY name COLLATE NOCASE")
     fun observeAll(): Flow<List<GoalEntity>>
@@ -99,16 +78,50 @@ interface GoalDao {
         CategoryEntity::class,
         ProjectEntity::class,
         TimeEntryEntity::class,
-        PlannedEntryEntity::class,
+        PlanBlockEntity::class,
+        PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class IvyTimeDatabase : RoomDatabase() {
     abstract fun timeEntryDao(): TimeEntryDao
     abstract fun categoryDao(): CategoryDao
     abstract fun projectDao(): ProjectDao
-    abstract fun plannedDao(): PlannedDao
+    abstract fun planDao(): PlanDao
     abstract fun goalDao(): GoalDao
+}
+
+@Dao
+interface PlanDao {
+    @Query("SELECT * FROM plan_blocks ORDER BY startSecondOfDay")
+    fun observeAll(): Flow<List<PlanBlockEntity>>
+
+    @Query("SELECT * FROM plan_blocks WHERE id = :id")
+    suspend fun findById(id: Long): PlanBlockEntity?
+
+    @Upsert
+    suspend fun save(plan: PlanBlockEntity)
+
+    @Query("DELETE FROM plan_blocks WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM plan_completions WHERE planId = :planId")
+    suspend fun deleteCompletions(planId: Long)
+
+    @Query("SELECT * FROM plan_completions")
+    fun observeCompletions(): Flow<List<PlanCompletionEntity>>
+
+    @Upsert
+    suspend fun complete(completion: PlanCompletionEntity)
+
+    @Query("DELETE FROM plan_completions WHERE planId = :planId AND epochDay = :epochDay")
+    suspend fun uncomplete(planId: Long, epochDay: Long)
+
+    @Query("UPDATE plan_blocks SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachCategory(categoryId: Long)
+
+    @Query("UPDATE plan_blocks SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun detachProject(projectId: Long)
 }

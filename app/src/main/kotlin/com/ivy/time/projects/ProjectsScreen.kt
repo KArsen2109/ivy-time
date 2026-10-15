@@ -33,16 +33,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ivy.design.system.CategoryPalette
 import com.ivy.design.system.ColorDot
-import com.ivy.design.system.GradientCircleButton
+import com.ivy.design.system.EmptyNote
 import com.ivy.design.system.IvyCard
-import com.ivy.design.system.IvyGradients
+import com.ivy.design.system.IvyTheme
+import com.ivy.design.system.ScreenHeading
+import com.ivy.design.system.Spacing
 import com.ivy.time.ui.ColorPickerRow
-import com.ivy.time.ui.EmptyHint
-import com.ivy.time.ui.IvyPalette
 import com.ivy.time.ui.PickerItem
 import com.ivy.time.ui.PickerRow
-import com.ivy.time.ui.ScreenTitle
 
 @Composable
 fun ProjectsScreen(modifier: Modifier = Modifier) {
@@ -59,61 +59,56 @@ fun ProjectsUi(
     var edited by remember { mutableStateOf<ProjectItem?>(null) }
     var dialogVisible by remember { mutableStateOf(false) }
 
-    Box(modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
-        ) {
-            item { ScreenTitle("Projects") }
-            if (state.projects.isEmpty()) {
-                item {
-                    EmptyHint(
-                        "A project is a longer effort inside a category, like Work → Ivy Time. " +
-                            "Projects are optional."
-                    )
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 40.dp),
+    ) {
+        item {
+            ScreenHeading("Projects") {
+                IconButton(
+                    onClick = {
+                        edited = null
+                        dialogVisible = true
+                    }
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = "New project")
                 }
             }
-            items(state.projects, key = { it.id }) { project ->
-                IvyCard(
-                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    onClick = {
-                        edited = project
-                        dialogVisible = true
-                    },
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ColorDot(project.color, size = 20.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                if (project.archived) "${project.name} (archived)" else project.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                listOfNotNull(project.categoryName, "${project.total} tracked")
-                                    .joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                        }
-                        IconButton(onClick = { onEvent(ProjectsEvent.Delete(project.id)) }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = "Delete project")
-                        }
+            if (state.projects.isEmpty()) {
+                EmptyNote(
+                    "A project is a longer effort inside a category, like Work and Ivy Time. " +
+                        "Projects are optional."
+                )
+            }
+        }
+        items(state.projects, key = { it.id }) { project ->
+            IvyCard(
+                Modifier.padding(horizontal = Spacing.Gutter, vertical = 5.dp),
+                onClick = {
+                    edited = project
+                    dialogVisible = true
+                },
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ColorDot(project.color, size = 14.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (project.archived) project.name + " (archived)" else project.name,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            listOfNotNull(project.categoryName, project.total + " tracked")
+                                .joinToString(" and "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = IvyTheme.extra.slate,
+                        )
+                    }
+                    IconButton(onClick = { onEvent(ProjectsEvent.Delete(project.id)) }) {
+                        Icon(Icons.Rounded.Delete, contentDescription = "Delete project")
                     }
                 }
             }
-        }
-
-        GradientCircleButton(
-            colors = IvyGradients.Ivy,
-            onClick = {
-                edited = null
-                dialogVisible = true
-            },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-        ) {
-            Icon(Icons.Rounded.Add, contentDescription = "New project", tint = Color.White)
         }
     }
 
@@ -138,7 +133,7 @@ private fun ProjectDialog(
     onSave: (Long, String, Long?, Color, Boolean) -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var color by remember { mutableStateOf(initial?.color ?: IvyPalette.first()) }
+    var color by remember { mutableStateOf(initial?.color ?: CategoryPalette.first()) }
     var categoryId by remember { mutableStateOf(initial?.categoryId) }
     var archived by remember { mutableStateOf(initial?.archived ?: false) }
 
@@ -152,6 +147,7 @@ private fun ProjectDialog(
                     onValueChange = { name = it },
                     label = { Text("Name") },
                     singleLine = true,
+                    shape = MaterialTheme.shapes.medium,
                 )
                 if (categories.isNotEmpty()) {
                     PickerRow(
@@ -160,7 +156,7 @@ private fun ProjectDialog(
                         onSelect = { categoryId = it },
                     )
                 }
-                ColorPickerRow(IvyPalette, color, onSelect = { color = it })
+                ColorPickerRow(CategoryPalette, color, onSelect = { color = it })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Archived", Modifier.weight(1f))
                     Switch(checked = archived, onCheckedChange = { archived = it })

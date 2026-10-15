@@ -75,10 +75,17 @@ class EntryViewModel @Inject constructor(
 
     private val entryId: Long = savedStateHandle.get<String>("entryId")?.toLongOrNull() ?: 0L
 
+    /** A new record opened from a day defaults to that day rather than to today. */
+    private val initialDate: LocalDate = savedStateHandle.get<String>("date")
+        ?.toLongOrNull()
+        ?.takeIf { it >= 0 }
+        ?.let(LocalDate::ofEpochDay)
+        ?: LocalDate.now(clock)
+
     private val categoryId = mutableStateOf<Long?>(null)
     private val projectId = mutableStateOf<Long?>(null)
     private val note = mutableStateOf("")
-    private val date = mutableStateOf(LocalDate.now(clock))
+    private val date = mutableStateOf(initialDate)
     private val start = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0).minusHours(1))
     private val end = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0))
     private val error = mutableStateOf<String?>(null)

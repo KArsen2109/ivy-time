@@ -6,9 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.ivy.design.system.SectionTitle
-import com.ivy.time.ui.ScreenTitle
-import com.ivy.time.ui.SettingRow
+import com.ivy.design.system.ScreenHeading
+import com.ivy.design.system.SectionLabel
+import com.ivy.design.system.SettingRow
 
 @Composable
 fun MoreScreen(
@@ -20,11 +20,11 @@ fun MoreScreen(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(bottom = 40.dp),
     ) {
         item {
-            ScreenTitle("More")
-            SectionTitle("Organise")
+            ScreenHeading("More")
+            SectionLabel("Organise")
             SettingRow(
                 title = "Categories",
                 subtitle = "What your time goes to",
@@ -37,10 +37,10 @@ fun MoreScreen(
             )
             SettingRow(
                 title = "Goals",
-                subtitle = "At least or at most, per week or month",
+                subtitle = "Weekly and monthly targets",
                 onClick = onOpenGoals,
             )
-            SectionTitle("App")
+            SectionLabel("App")
             SettingRow(
                 title = "Settings",
                 subtitle = "Theme, week start, backup",

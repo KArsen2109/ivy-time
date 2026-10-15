@@ -5,14 +5,10 @@ import arrow.core.right
 import com.ivy.time.domain.model.Goal
 import com.ivy.time.domain.model.GoalPeriod
 import com.ivy.time.domain.model.GoalType
-import com.ivy.time.domain.model.PlannedEntry
-import com.ivy.time.domain.model.PlannedRepository
-import com.ivy.time.domain.model.Recurrence
 import com.ivy.time.domain.model.TimeEntry
 import com.ivy.time.domain.model.TimeError
 import com.ivy.time.domain.model.TimeRepository
 import com.ivy.time.domain.usecase.CategoryTotal
-import com.ivy.time.domain.usecase.CompletePlannedUseCase
 import com.ivy.time.domain.usecase.Csv
 import com.ivy.time.domain.usecase.PeriodType
 import com.ivy.time.domain.usecase.SaveEntryUseCase
@@ -32,7 +28,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalTime
 import java.time.ZoneOffset
 import kotlin.test.Test
 
@@ -49,17 +44,6 @@ private class FakeTimeRepo : TimeRepository {
         } else {
             saved[saved.indexOfFirst { it.id == entry.id }] = entry
         }
-    }
-    override suspend fun delete(id: Long) { saved.removeAll { it.id == id } }
-}
-
-private class FakePlannedRepo(initial: List<PlannedEntry>) : PlannedRepository {
-    val saved = initial.toMutableList()
-    override fun observePlanned(): Flow<List<PlannedEntry>> = emptyFlow()
-    override suspend fun findById(id: Long) = saved.firstOrNull { it.id == id }
-    override suspend fun save(planned: PlannedEntry) {
-        val index = saved.indexOfFirst { it.id == planned.id }
-        if (index >= 0) saved[index] = planned else saved += planned
     }
     override suspend fun delete(id: Long) { saved.removeAll { it.id == id } }
 }
@@ -110,64 +94,6 @@ class DomainTest {
         val save = SaveEntryUseCase(FakeTimeRepo(), clock)
         save(0, null, null, "", T0, T0) shouldBe TimeError.EndNotAfterStart.left()
         save(0, null, null, "", T0, T0.plusSeconds(60)) shouldBe TimeError.EndInTheFuture.left()
-    }
-
-    @Test
-    fun `completing a one-time plan logs it and removes the plan`() = runTest {
-        val planned = PlannedEntry(
-            id = 1,
-            categoryId = 2,
-            projectId = null,
-            note = "Gym",
-            duration = Duration.ofHours(1),
-            date = LocalDate.of(2024, 1, 3),
-            time = LocalTime.of(8, 0),
-            recurrence = Recurrence.OneTime,
-        )
-        val timeRepo = FakeTimeRepo()
-        val plannedRepo = FakePlannedRepo(listOf(planned))
-        CompletePlannedUseCase(plannedRepo, timeRepo, clock)(1) shouldBe Unit.right()
-
-        timeRepo.saved.single().let {
-            it.categoryId shouldBe 2
-            it.start shouldBe Instant.parse("2024-01-03T08:00:00Z")
-            it.end shouldBe Instant.parse("2024-01-03T09:00:00Z")
-        }
-        plannedRepo.saved shouldBe emptyList()
-    }
-
-    @Test
-    fun `completing a recurring plan moves it to the next week`() = runTest {
-        val planned = PlannedEntry(
-            id = 1,
-            categoryId = null,
-            projectId = null,
-            note = "Standup",
-            duration = Duration.ofMinutes(30),
-            date = LocalDate.of(2024, 1, 3),
-            time = LocalTime.of(9, 0),
-            recurrence = Recurrence.Weekly,
-        )
-        val plannedRepo = FakePlannedRepo(listOf(planned))
-        CompletePlannedUseCase(plannedRepo, FakeTimeRepo(), clock)(1)
-        plannedRepo.saved.single().date shouldBe LocalDate.of(2024, 1, 10)
-    }
-
-    @Test
-    fun `a plan that is still ahead logs only the time that has passed`() = runTest {
-        val planned = PlannedEntry(
-            id = 1,
-            categoryId = null,
-            projectId = null,
-            note = "Deep work",
-            duration = Duration.ofHours(4),
-            date = LocalDate.of(2024, 1, 3),
-            time = LocalTime.of(9, 0), // 9:00 + 4h = 13:00, but now is 10:00
-            recurrence = Recurrence.OneTime,
-        )
-        val timeRepo = FakeTimeRepo()
-        CompletePlannedUseCase(FakePlannedRepo(listOf(planned)), timeRepo, clock)(1)
-        timeRepo.saved.single().end shouldBe T0
     }
 
     @Test

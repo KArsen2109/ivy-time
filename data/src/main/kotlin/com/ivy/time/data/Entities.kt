@@ -6,12 +6,14 @@ import com.ivy.time.domain.model.Category
 import com.ivy.time.domain.model.Goal
 import com.ivy.time.domain.model.GoalPeriod
 import com.ivy.time.domain.model.GoalType
-import com.ivy.time.domain.model.PlannedEntry
+import com.ivy.time.domain.model.PlanBlock
+import com.ivy.time.domain.model.PlanCompletion
 import com.ivy.time.domain.model.Project
-import com.ivy.time.domain.model.Recurrence
+import com.ivy.time.domain.model.RepeatRule
 import com.ivy.time.domain.model.TimeEntry
 import java.time.Duration
 import java.time.Instant
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -57,29 +59,6 @@ data class TimeEntryEntity(
     )
 }
 
-@Entity(tableName = "planned_entries")
-data class PlannedEntryEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long,
-    val categoryId: Long?,
-    val projectId: Long?,
-    val note: String,
-    val minutes: Long,
-    val epochDay: Long,
-    val secondOfDay: Int,
-    val recurrence: String,
-) {
-    fun toDomain() = PlannedEntry(
-        id = id,
-        categoryId = categoryId,
-        projectId = projectId,
-        note = note,
-        duration = Duration.ofMinutes(minutes),
-        date = LocalDate.ofEpochDay(epochDay),
-        time = LocalTime.ofSecondOfDay(secondOfDay.toLong()),
-        recurrence = parseEnum(recurrence, Recurrence.OneTime),
-    )
-}
-
 @Entity(tableName = "goals")
 data class GoalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long,
@@ -112,17 +91,6 @@ fun TimeEntry.toEntity() = TimeEntryEntity(
     endMillis = end?.toEpochMilli(),
 )
 
-fun PlannedEntry.toEntity() = PlannedEntryEntity(
-    id = id,
-    categoryId = categoryId,
-    projectId = projectId,
-    note = note,
-    minutes = duration.toMinutes(),
-    epochDay = date.toEpochDay(),
-    secondOfDay = time.toSecondOfDay(),
-    recurrence = recurrence.name,
-)
-
 fun Goal.toEntity() = GoalEntity(
     id = id,
     name = name,
@@ -135,3 +103,65 @@ fun Goal.toEntity() = GoalEntity(
 /** Falls back instead of throwing, so a hand-edited database cannot crash the app. */
 private inline fun <reified T : Enum<T>> parseEnum(name: String, fallback: T): T =
     enumValues<T>().firstOrNull { it.name == name } ?: fallback
+
+@Entity(tableName = "plan_blocks")
+data class PlanBlockEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val categoryId: Long?,
+    val projectId: Long?,
+    val note: String,
+    val startSecondOfDay: Int,
+    val endSecondOfDay: Int,
+    val startEpochDay: Long,
+    /** "ONCE", "DAILY", "MONTHLY" or "WEEKLY:MONDAY,WEDNESDAY". */
+    val repeat: String,
+) {
+    fun toDomain() = PlanBlock(
+        id = id,
+        categoryId = categoryId,
+        projectId = projectId,
+        note = note,
+        start = LocalTime.ofSecondOfDay(startSecondOfDay.toLong()),
+        end = LocalTime.ofSecondOfDay(endSecondOfDay.toLong()),
+        startDate = LocalDate.ofEpochDay(startEpochDay),
+        repeat = parseRepeat(repeat),
+    )
+}
+
+@Entity(tableName = "plan_completions", primaryKeys = ["planId", "epochDay"])
+data class PlanCompletionEntity(
+    val planId: Long,
+    val epochDay: Long,
+) {
+    fun toDomain() = PlanCompletion(planId, LocalDate.ofEpochDay(epochDay))
+}
+
+fun PlanBlock.toEntity() = PlanBlockEntity(
+    id = id,
+    categoryId = categoryId,
+    projectId = projectId,
+    note = note,
+    startSecondOfDay = start.toSecondOfDay(),
+    endSecondOfDay = end.toSecondOfDay(),
+    startEpochDay = startDate.toEpochDay(),
+    repeat = writeRepeat(repeat),
+)
+
+private fun writeRepeat(rule: RepeatRule): String = when (rule) {
+    RepeatRule.Once -> "ONCE"
+    RepeatRule.Daily -> "DAILY"
+    RepeatRule.Monthly -> "MONTHLY"
+    is RepeatRule.Weekly -> "WEEKLY:" + rule.days.sorted().joinToString(",") { it.name }
+}
+
+private fun parseRepeat(raw: String): RepeatRule = when {
+    raw == "DAILY" -> RepeatRule.Daily
+    raw == "MONTHLY" -> RepeatRule.Monthly
+    raw.startsWith("WEEKLY:") -> RepeatRule.Weekly(
+        raw.removePrefix("WEEKLY:")
+            .split(",")
+            .mapNotNull { name -> DayOfWeek.entries.firstOrNull { it.name == name } }
+            .toSet()
+    )
+    else -> RepeatRule.Once
+}
