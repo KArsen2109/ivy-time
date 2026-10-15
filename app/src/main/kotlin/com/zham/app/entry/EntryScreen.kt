@@ -1,5 +1,6 @@
 package com.zham.app.entry
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ import com.zham.design.system.PrimaryButton
 import com.zham.design.system.SectionLabel
 import com.zham.design.system.Spacing
 import com.zham.design.system.TimeKeypadDialog
+import com.zham.design.system.ZhamTheme
 import com.zham.app.ui.CalendarSheet
 import com.zham.app.ui.PickerRow
 
@@ -83,7 +85,10 @@ fun EntryUi(
                 modifier = Modifier.weight(1f),
             )
             if (state.editing) {
-                IconButton(onClick = { onEvent(EntryEvent.Delete) }) {
+                val askDelete = rememberDeleteConfirm(
+                    "Delete this record?", "The tracked time is removed.",
+                ) { onEvent(EntryEvent.Delete) }
+                IconButton(onClick = askDelete) {
                     Icon(Icons.Rounded.Delete, contentDescription = "Delete record")
                 }
             }
@@ -181,6 +186,14 @@ fun EntryUi(
             }
         }
 
+        if (state.overlapsOther) {
+            Text(
+                text = "Another record already covers part of this time. Overlaps are counted once.",
+                style = MaterialTheme.typography.bodySmall,
+                color = ZhamTheme.extra.slate,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            )
+        }
         state.error?.let {
             Text(
                 text = it,

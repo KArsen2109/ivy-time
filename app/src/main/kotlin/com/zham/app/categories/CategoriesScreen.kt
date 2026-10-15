@@ -1,5 +1,6 @@
 package com.zham.app.categories
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -108,7 +109,11 @@ fun CategoriesUi(
                             color = ZhamTheme.extra.slate,
                         )
                     }
-                    IconButton(onClick = { onEvent(CategoriesEvent.Delete(category.id)) }) {
+                    val askDelete = rememberDeleteConfirm(
+                        "Delete this category?",
+                        "Records and blocks stay but lose the category. Goals set on it are deleted.",
+                    ) { onEvent(CategoriesEvent.Delete(category.id)) }
+                    IconButton(onClick = askDelete) {
                         Icon(Icons.Rounded.Delete, contentDescription = "Delete category")
                     }
                 }

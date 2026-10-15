@@ -1,5 +1,6 @@
 package com.zham.app.timer
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -214,7 +215,10 @@ fun TimerUi(
                         IconButton(onClick = { onEvent(TimerEvent.Resume(record.id)) }) {
                             Icon(Icons.Rounded.Replay, contentDescription = "Track this again")
                         }
-                        IconButton(onClick = { onEvent(TimerEvent.Delete(record.id)) }) {
+                        val askDelete = rememberDeleteConfirm(
+                            "Delete this record?", "The tracked time is removed.",
+                        ) { onEvent(TimerEvent.Delete(record.id)) }
+                        IconButton(onClick = askDelete) {
                             Icon(Icons.Rounded.Delete, contentDescription = "Delete record")
                         }
                     }

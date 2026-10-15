@@ -1,5 +1,6 @@
 package com.zham.app.projects
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -222,7 +223,10 @@ private fun ProjectCard(project: ProjectItem, onClick: () -> Unit, onDelete: () 
                     color = ZhamTheme.extra.slate,
                 )
             }
-            IconButton(onClick = onDelete) {
+            val askDelete = rememberDeleteConfirm(
+                "Delete this project?", "Records and blocks keep their time but lose the project.", onDelete,
+            )
+            IconButton(onClick = askDelete) {
                 Icon(Icons.Rounded.Delete, contentDescription = "Delete project")
             }
         }

@@ -18,7 +18,10 @@ import com.zham.domain.model.GoalRepository
 import com.zham.domain.model.ProjectRepository
 import com.zham.domain.model.TimeEntry
 import com.zham.domain.model.TimeRepository
+import com.zham.domain.usecase.BuildBackupUseCase
 import com.zham.domain.usecase.Csv
+import com.zham.domain.usecase.FullBackup
+import com.zham.domain.usecase.RestoreBackupUseCase
 import com.zham.domain.usecase.goalProgress
 import com.zham.app.ui.ComposeViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,6 +66,8 @@ class MoreViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val projectRepository: ProjectRepository,
     private val goalRepository: GoalRepository,
+    private val buildBackup: BuildBackupUseCase,
+    private val restoreBackup: RestoreBackupUseCase,
     private val clock: Clock,
 ) : ComposeViewModel<MoreState, MoreEvent>() {
 
@@ -127,51 +132,28 @@ class MoreViewModel @Inject constructor(
         return Csv.export(entries, categories, projects)
     }
 
+    /** Everything the app holds, as the text of the full backup file. */
+    suspend fun buildFullBackup(): String = FullBackup.encode(buildBackup())
+
+    /** Accepts a full backup or a records CSV; both are merged without duplicating anything. */
     private fun importCsv(content: String) {
         viewModelScope.launch {
-            val rows = Csv.parse(content)
-            if (rows.isEmpty()) {
-                message.value = "No records found in that file."
+            val data = FullBackup.decode(content)
+                ?: FullBackup.fromCsv(content).takeIf { !it.isEmpty }
+            if (data == null) {
+                message.value = "That file is not a Zham backup or a records CSV."
                 return@launch
             }
-            // Categories are matched by name and created when missing.
-            val categories = categoryRepository.observeCategories().first()
-                .associateBy { it.name.lowercase() }
-                .toMutableMap()
-            val projects = projectRepository.observeProjects().first()
-                .associateBy { it.name.lowercase() }
-
-            rows.forEach { row ->
-                val categoryId = row.category.takeIf { it.isNotBlank() }?.let { name ->
-                    categories[name.lowercase()]?.id ?: run {
-                        categoryRepository.save(
-                            Category(
-                                id = 0,
-                                name = name,
-                                color = CategoryPalette[categories.size % CategoryPalette.size]
-                                    .toArgb(),
-                                icon = "other",
-                                orderNum = categories.size.toDouble(),
-                            )
-                        )
-                        categoryRepository.observeCategories().first()
-                            .firstOrNull { it.name.equals(name, ignoreCase = true) }
-                            ?.also { categories[name.lowercase()] = it }
-                            ?.id
-                    }
-                }
-                timeRepository.save(
-                    TimeEntry(
-                        id = 0,
-                        categoryId = categoryId,
-                        projectId = projects[row.project.lowercase()]?.id,
-                        note = row.note,
-                        start = row.start,
-                        end = row.end ?: row.start.plusSeconds(60),
-                    )
-                )
+            val result = restoreBackup(data) { index ->
+                CategoryPalette[index % CategoryPalette.size].toArgb()
             }
-            message.value = "Imported ${rows.size} records."
+            message.value = buildString {
+                append("Added ${result.entries} records")
+                if (result.plans > 0) append(", ${result.plans} blocks")
+                if (result.goals > 0) append(", ${result.goals} goals")
+                append(".")
+                if (result.skipped > 0) append(" ${result.skipped} were already there.")
+            }
         }
     }
 }

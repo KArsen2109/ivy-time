@@ -43,6 +43,8 @@ data class PlanSheet(
     val repeatLabel: String,
     val description: String,
     val done: Boolean,
+    /** The day this occurrence belongs to; yesterday's for the tail of a block past midnight. */
+    val date: LocalDate,
 )
 
 sealed interface DayEvent {
@@ -54,7 +56,7 @@ sealed interface DayEvent {
     data class OpenPlan(val planId: Long) : DayEvent
     data object CloseSheet : DayEvent
     data class StartFromPlan(val planId: Long) : DayEvent
-    data class TogglePlanDone(val planId: Long) : DayEvent
+    data class TogglePlanDone(val planId: Long, val date: LocalDate, val done: Boolean) : DayEvent
     data class DeletePlan(val planId: Long) : DayEvent
     data object DismissError : DayEvent
 }

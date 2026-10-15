@@ -1,5 +1,6 @@
 package com.zham.app.goals
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,7 +98,10 @@ fun GoalsUi(state: GoalsState, onEvent: (GoalsEvent) -> Unit, modifier: Modifier
                             color = ZhamTheme.extra.slate,
                         )
                     }
-                    IconButton(onClick = { onEvent(GoalsEvent.Delete(goal.id)) }) {
+                    val askDelete = rememberDeleteConfirm(
+                        "Delete this goal?", "The goal goes away. Your records stay.",
+                    ) { onEvent(GoalsEvent.Delete(goal.id)) }
+                    IconButton(onClick = askDelete) {
                         Icon(Icons.Rounded.Delete, contentDescription = "Delete goal")
                     }
                 }

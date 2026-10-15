@@ -15,13 +15,23 @@ import javax.inject.Singleton
 class SelectedDay @Inject constructor(clock: Clock) {
     private val state = MutableStateFlow(LocalDate.now(clock))
 
+    /** True while the user has not moved away from today, so a new day should carry them along. */
+    private var followingToday = true
+    private var lastToday = LocalDate.now(clock)
+
     val date: StateFlow<LocalDate> = state
 
     fun set(date: LocalDate) {
         state.value = date
+        followingToday = date == lastToday
     }
 
-    fun shift(days: Long) {
-        state.value = state.value.plusDays(days)
+    fun shift(days: Long) = set(state.value.plusDays(days))
+
+    /** Called when the calendar day rolls over, e.g. the app stayed open past midnight. */
+    fun dayChanged(today: LocalDate) {
+        if (today == lastToday) return
+        lastToday = today
+        if (followingToday) state.value = today
     }
 }

@@ -48,6 +48,19 @@ fun MoreScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    val fullLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = viewModel.buildFullBackup()
+            val written = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+            }.isSuccess
+            viewModel.onEvent(MoreEvent.ExportDone(written))
+        }
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
@@ -77,12 +90,10 @@ fun MoreScreen(
         onOpenCategories = onOpenCategories,
         onOpenProjects = onOpenProjects,
         onOpenGoals = onOpenGoals,
-        onExport = { exportLauncher.launch("zham-backup.csv") },
-        onImport = {
-            importLauncher.launch(
-                arrayOf("text/csv", "text/comma-separated-values", "text/plain")
-            )
-        },
+        onExportFull = { fullLauncher.launch("zham-backup.json") },
+        onExport = { exportLauncher.launch("zham-records.csv") },
+        // A backup may be offered with any file type, so none is filtered out.
+        onImport = { importLauncher.launch(arrayOf("*/*")) },
         modifier = modifier,
     )
 }
@@ -94,6 +105,7 @@ fun MoreUi(
     onOpenCategories: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenGoals: () -> Unit,
+    onExportFull: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     modifier: Modifier = Modifier,
@@ -200,14 +212,20 @@ fun MoreUi(
             SectionLabel("Your data")
             ZhamCard(Modifier.padding(horizontal = Spacing.Gutter)) {
                 SettingRow(
-                    title = "Export to CSV",
-                    subtitle = "${state.recordCount} records, ${state.categoryCount} categories",
+                    title = "Back up everything",
+                    subtitle = "Records, plans, goals, categories and projects in one file",
+                    onClick = onExportFull,
+                    horizontalPadding = 0.dp,
+                )
+                SettingRow(
+                    title = "Export records to CSV",
+                    subtitle = "${state.recordCount} records, for spreadsheets",
                     onClick = onExport,
                     horizontalPadding = 0.dp,
                 )
                 SettingRow(
-                    title = "Import from CSV",
-                    subtitle = "Adds records and creates any missing categories",
+                    title = "Restore or import",
+                    subtitle = "Takes a full backup or a CSV and adds only what is missing",
                     onClick = onImport,
                     horizontalPadding = 0.dp,
                 )

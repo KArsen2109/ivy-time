@@ -8,13 +8,14 @@ import kotlinx.coroutines.delay
 import java.time.Clock
 import java.time.Instant
 
-/** Current time, refreshed every second while [active]. */
+/** Current time, refreshed every second while [active] and every 30 seconds otherwise. */
 @Composable
 fun tickingNow(clock: Clock, active: Boolean): State<Instant> =
     produceState(initialValue = clock.instant(), key1 = active) {
         value = clock.instant()
-        while (active) {
-            delay(1_000)
+        // Idle screens still tick slowly, so "today" and the now-line follow the clock past midnight.
+        while (true) {
+            delay(if (active) 1_000 else 30_000)
             value = clock.instant()
         }
     }

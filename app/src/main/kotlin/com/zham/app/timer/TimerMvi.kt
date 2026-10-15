@@ -17,6 +17,7 @@ import com.zham.domain.usecase.StartTimerUseCase
 import com.zham.domain.usecase.StopTimerUseCase
 import com.zham.domain.usecase.formatHms
 import com.zham.domain.usecase.formatShort
+import com.zham.domain.usecase.totalIn
 import com.zham.app.ui.ComposeViewModel
 import com.zham.app.ui.PickerItem
 import com.zham.app.ui.TimeFormatters
@@ -113,7 +114,10 @@ class TimerViewModel @Inject constructor(
         val selectedCategory = categoriesById[selected]
         val elapsed = running?.duration(now) ?: Duration.ZERO
 
-        val todayEntries = entries.filter { it.start.atZone(zone).toLocalDate() == today }
+        // A record that crosses midnight belongs to both days, and only today's part is counted here.
+        val dayStart = today.atStartOfDay(zone).toInstant()
+        val dayEnd = today.plusDays(1).atStartOfDay(zone).toInstant()
+        val todayEntries = entries.filter { it.start < dayEnd && (it.end ?: now) > dayStart }
 
         return TimerState(
             elapsed = elapsed.formatHms(),
@@ -154,9 +158,7 @@ class TimerViewModel @Inject constructor(
             categoryName = (running?.let { runningCategory } ?: selectedCategory)?.name
                 ?: "Nothing selected",
             todayLabel = formatters.weekdayAndDate(today),
-            todayTotal = todayEntries
-                .fold(Duration.ZERO) { acc, it -> acc + it.duration(now) }
-                .formatShort(),
+            todayTotal = totalIn(todayEntries, dayStart, dayEnd, now).formatShort(),
             records = todayEntries.sortedByDescending { it.start }.map { entry ->
                 val category = categoriesById[entry.categoryId]
                 RecordRow(

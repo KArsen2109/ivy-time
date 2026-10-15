@@ -1,5 +1,6 @@
 package com.zham.app.day
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -156,15 +157,18 @@ fun DayUi(
             sheetState = rememberModalBottomSheetState(),
             shape = ZhamShapes.Sheet,
         ) {
+            val askDelete = rememberDeleteConfirm(
+                "Delete this block?", "Every day it repeats on goes away too.",
+            ) { onEvent(DayEvent.DeletePlan(sheet.planId)) }
             PlanSheetContent(
                 sheet = sheet,
                 onStart = { onEvent(DayEvent.StartFromPlan(sheet.planId)) },
-                onDone = { onEvent(DayEvent.TogglePlanDone(sheet.planId)) },
+                onDone = { onEvent(DayEvent.TogglePlanDone(sheet.planId, sheet.date, sheet.done)) },
                 onEdit = {
                     onEvent(DayEvent.CloseSheet)
                     onEditPlan(sheet.planId)
                 },
-                onDelete = { onEvent(DayEvent.DeletePlan(sheet.planId)) },
+                onDelete = askDelete,
             )
         }
     }
@@ -343,7 +347,7 @@ private fun PlanSheetContent(
                 modifier = Modifier.weight(1f),
             )
             QuietButton(
-                text = if (sheet.done) "Done" else "Mark done",
+                text = if (sheet.done) "Done · undo" else "Mark done",
                 onClick = onDone,
                 icon = Icons.Rounded.Check,
                 modifier = Modifier.weight(1f),

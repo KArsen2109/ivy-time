@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -84,7 +85,10 @@ fun PlanEditorUi(
                 modifier = Modifier.weight(1f),
             )
             if (state.editing) {
-                IconButton(onClick = { onEvent(PlanEditorEvent.Delete) }) {
+                val askDelete = rememberDeleteConfirm(
+                    "Delete this block?", "Every day it repeats on goes away too.",
+                ) { onEvent(PlanEditorEvent.Delete) }
+                IconButton(onClick = askDelete) {
                     Icon(Icons.Rounded.Delete, contentDescription = "Delete block")
                 }
             }

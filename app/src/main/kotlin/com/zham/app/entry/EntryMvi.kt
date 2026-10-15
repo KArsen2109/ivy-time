@@ -57,6 +57,8 @@ data class EntryState(
     val marks: CalendarMarks,
     val error: String?,
     val canSave: Boolean,
+    /** True when another record already covers part of this time. */
+    val overlapsOther: Boolean,
 )
 
 sealed interface EntryEvent {
@@ -99,7 +101,14 @@ class EntryViewModel @Inject constructor(
     private val note = mutableStateOf("")
     private val description = mutableStateOf("")
     private val date = mutableStateOf(initialDate)
-    private val start = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0).minusHours(1))
+    // Within the first hour of the day "an hour ago" would be yesterday evening, so start at midnight.
+    private val start = mutableStateOf(
+        LocalTime.now(clock).withSecond(0).withNano(0).let { now ->
+            if (now.isBefore(LocalTime.of(1, 0))) LocalTime.MIDNIGHT else now.minusHours(1)
+        }
+    )
+    /** Whole days a loaded record lasts beyond what its start and end times alone say. */
+    private val extraDays = mutableStateOf(0L)
     private val end = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0))
     private val error = mutableStateOf<String?>(null)
     private val loaded = mutableStateOf(entryId == 0L)
@@ -112,6 +121,11 @@ class EntryViewModel @Inject constructor(
         if (entryId != 0L) {
             viewModelScope.launch {
                 timeRepository.findById(entryId)?.let { entry ->
+                    // A running timer has no end to edit; it is stopped from the timer instead.
+                    if (entry.end == null) {
+                        closed.value = true
+                        return@let
+                    }
                     val zone = clock.zone
                     val startLocal = entry.start.atZone(zone)
                     val endLocal = (entry.end ?: entry.start).atZone(zone)
@@ -122,6 +136,10 @@ class EntryViewModel @Inject constructor(
                     date.value = startLocal.toLocalDate()
                     start.value = startLocal.toLocalTime().withSecond(0).withNano(0)
                     end.value = endLocal.toLocalTime().withSecond(0).withNano(0)
+                    val shown = Duration.between(start.value, end.value)
+                        .let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
+                    val actual = Duration.between(entry.start, entry.end)
+                    extraDays.value = Math.round((actual - shown).toMinutes() / 1440.0).coerceAtLeast(0)
                 }
                 loaded.value = true
             }
@@ -171,6 +189,7 @@ class EntryViewModel @Inject constructor(
             marks = calendarMarks(entries, plans, clock.zone),
             error = problem ?: error.value,
             canSave = problem == null,
+            overlapsOther = overlapsOther(entries),
         )
     }
 
@@ -186,9 +205,18 @@ class EntryViewModel @Inject constructor(
             is EntryEvent.SetNote -> note.value = event.note
             is EntryEvent.SetDescription -> description.value = event.description
             is EntryEvent.SetDate -> date.value = event.date
-            is EntryEvent.SetStart -> start.value = event.time
-            is EntryEvent.SetEnd -> end.value = event.time
-            is EntryEvent.SetDuration -> start.value = end.value.minusMinutes(event.minutes)
+            is EntryEvent.SetStart -> {
+                extraDays.value = 0
+                start.value = event.time
+            }
+            is EntryEvent.SetEnd -> {
+                extraDays.value = 0
+                end.value = event.time
+            }
+            is EntryEvent.SetDuration -> {
+                extraDays.value = 0
+                start.value = end.value.minusMinutes(event.minutes)
+            }
             EntryEvent.Save -> save()
             EntryEvent.Delete -> viewModelScope.launch {
                 if (entryId != 0L) timeRepository.delete(entryId)
@@ -200,7 +228,14 @@ class EntryViewModel @Inject constructor(
     /** An end that is not after the start means the record ran past midnight. */
     private fun duration(): Duration {
         val raw = Duration.between(start.value, end.value)
-        return if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw
+        return (if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw).plusDays(extraDays.value)
+    }
+
+    private fun overlapsOther(entries: List<com.zham.domain.model.TimeEntry>): Boolean {
+        val from = date.value.atTime(start.value).atZone(clock.zone).toInstant()
+        val to = from.plus(duration())
+        val now = clock.instant()
+        return entries.any { it.id != entryId && it.start < to && (it.end ?: now) > from }
     }
 
     private fun endsInTheFuture(): Boolean {

@@ -1,6 +1,7 @@
 package com.zham.app.day
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +24,7 @@ import com.zham.domain.model.occurrencesOn
 import com.zham.domain.usecase.CompletePlanUseCase
 import com.zham.domain.usecase.StartTimerUseCase
 import com.zham.domain.usecase.StopTimerUseCase
+import com.zham.domain.usecase.UncompletePlanUseCase
 import com.zham.domain.usecase.dayPlan
 import com.zham.domain.usecase.minutesFromMidnight
 import com.zham.domain.usecase.formatHms
@@ -56,6 +58,7 @@ class DayViewModel @Inject constructor(
     private val startTimer: StartTimerUseCase,
     private val stopTimer: StopTimerUseCase,
     private val completePlan: CompletePlanUseCase,
+    private val uncompletePlan: UncompletePlanUseCase,
     private val clock: Clock,
 ) : ComposeViewModel<DayState, DayEvent>() {
 
@@ -77,6 +80,8 @@ class DayViewModel @Inject constructor(
         val zone = clock.zone
         val today = LocalDate.now(clock)
         val date by remember { selectedDay.date }.collectAsState()
+        // Left open past midnight, the screen moves to the new day unless the user went elsewhere.
+        LaunchedEffect(today) { selectedDay.dayChanged(today) }
         val formatters = TimeFormatters(zone, settings?.use24Hours ?: true)
 
         val categoriesById = categories.associateBy { it.id }
@@ -124,10 +129,11 @@ class DayViewModel @Inject constructor(
                 .map { PickerItem(it.id, it.name, Color(it.color), it.icon) }
                 .toImmutableList(),
             sheet = openPlanId.value?.let { planId ->
-                occurrences.firstOrNull { it.plan.id == planId }?.let { occurrence ->
+                occurrences.firstOrNull { it.blockId(date) == planId }?.let { occurrence ->
                     val category = categoriesById[occurrence.plan.categoryId]
                     PlanSheet(
-                        planId = planId,
+                        planId = occurrence.plan.id,
+                        date = occurrence.date,
                         title = occurrence.plan.note.ifBlank { category?.name ?: "Planned block" },
                         timeRange = formatters.time(occurrence.plan.start) + " – " +
                             formatters.time(occurrence.plan.end),
@@ -161,10 +167,13 @@ class DayViewModel @Inject constructor(
                 if (plan != null) launchStart(plan.categoryId, plan.projectId, plan.note, plan.description)
             }
             is DayEvent.TogglePlanDone -> viewModelScope.launch {
-                val date = selectedDay.date.value
                 openPlanId.value = null
-                completePlan(event.planId, date)
-                    .fold({ error.value = it.message() }, { error.value = null })
+                val result = if (event.done) {
+                    uncompletePlan(event.planId, event.date)
+                } else {
+                    completePlan(event.planId, event.date)
+                }
+                result.fold({ error.value = it.message() }, { error.value = null })
             }
             is DayEvent.DeletePlan -> viewModelScope.launch {
                 openPlanId.value = null
@@ -190,7 +199,7 @@ class DayViewModel @Inject constructor(
         val from = minutesFromMidnight(startsAt, date, zone).coerceIn(0, MINUTES_PER_DAY - 10)
         val to = minutesFromMidnight(endsAt, date, zone)
         return TimelineBlock(
-            id = plan.id,
+            id = blockId(date),
             startMinutes = from,
             endMinutes = to.coerceIn(from + 10, MINUTES_PER_DAY),
             label = plan.note.ifBlank { category?.name ?: "Planned" },
@@ -221,6 +230,12 @@ class DayViewModel @Inject constructor(
         )
     }
 }
+
+/**
+ * The id a planned block carries on the timeline. The tail of yesterday's block is negative, so
+ * it can be told apart from today's block of the same plan.
+ */
+private fun PlanOccurrence.blockId(shown: LocalDate): Long = if (date == shown) plan.id else -plan.id
 
 private fun RepeatRule.label(): String = when (this) {
     RepeatRule.Once -> "Once"
