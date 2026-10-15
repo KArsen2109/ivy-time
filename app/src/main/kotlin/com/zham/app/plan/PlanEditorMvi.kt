@@ -62,7 +62,8 @@ data class PlanEditorState(
     val weekStart: DayOfWeek,
     val marks: CalendarMarks,
     val error: String?,
-    val canSave: Boolean,
+    /** True when the chosen time has passed today, so the new block lands on the next day. */
+    val movedToNextDay: Boolean,
 )
 
 sealed interface PlanEditorEvent {
@@ -149,8 +150,7 @@ class PlanEditorViewModel @Inject constructor(
         val use24Hours = settings?.use24Hours ?: true
         val formatters = TimeFormatters(clock.zone, use24Hours)
         val selected = categoryId.value
-        // Worked out from what is on screen now, so it goes away as soon as the input is fixed.
-        val problem = if (startHasPassed()) "A new block cannot start in the past. Pick a later time or day." else null
+        val shownDate = effectiveDate()
 
         return PlanEditorState(
             editing = planId != 0L,
@@ -166,14 +166,14 @@ class PlanEditorViewModel @Inject constructor(
             projectId = projectId.value,
             note = note.value,
             description = description.value,
-            dateLabel = formatters.shortDate(date.value),
+            dateLabel = formatters.shortDate(shownDate),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
             durationLabel = length().formatShort(),
             crossesMidnight = !end.value.isAfter(start.value),
             repeat = repeat.value,
             weekdays = weekdays.value,
-            date = date.value,
+            date = shownDate,
             start = start.value,
             end = end.value,
             use24Hours = use24Hours,
@@ -181,8 +181,8 @@ class PlanEditorViewModel @Inject constructor(
             now = LocalTime.now(clock).withSecond(0).withNano(0),
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
             marks = calendarMarks(entries, plans, clock.zone),
-            error = problem ?: error.value,
-            canSave = problem == null,
+            error = error.value,
+            movedToNextDay = effectiveDate() != notBeforeToday(date.value),
         )
     }
 
@@ -224,13 +224,21 @@ class PlanEditorViewModel @Inject constructor(
     private fun length(): Duration = Duration.between(start.value, end.value)
         .let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
 
-    /** A new block cannot begin in the past; blocks already saved may keep their old dates. */
-    private fun startHasPassed(): Boolean =
-        planId == 0L && LocalDateTime.of(date.value, start.value)
-            .isBefore(LocalDateTime.now(clock).withSecond(0).withNano(0))
+    /**
+     * A new block never starts in the past: a time that has already gone by today means the
+     * next day. Blocks already saved keep their dates so they can still be edited.
+     */
+    private fun effectiveDate(): LocalDate {
+        if (planId != 0L) return date.value
+        val now = LocalDateTime.now(clock).withSecond(0).withNano(0)
+        val day = notBeforeToday(date.value)
+        return if (LocalDateTime.of(day, start.value).isBefore(now)) day.plusDays(1) else day
+    }
+
+    private fun notBeforeToday(day: LocalDate): LocalDate =
+        LocalDate.now(clock).let { today -> if (day.isBefore(today)) today else day }
 
     private fun save() {
-        if (startHasPassed()) return
         viewModelScope.launch {
             savePlan(
                 id = planId,
@@ -240,7 +248,7 @@ class PlanEditorViewModel @Inject constructor(
                 description = description.value,
                 start = start.value,
                 end = end.value,
-                startDate = date.value,
+                startDate = effectiveDate(),
                 repeat = when (repeat.value) {
                     RepeatChoice.Once -> RepeatRule.Once
                     RepeatChoice.Daily -> RepeatRule.Daily

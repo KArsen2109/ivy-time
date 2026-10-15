@@ -218,6 +218,14 @@ fun PlanEditorUi(
                 .padding(horizontal = Spacing.Gutter),
         )
 
+        if (state.movedToNextDay) {
+            Text(
+                text = "That time has already passed today, so this block goes on the next day.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            )
+        }
+
         state.error?.let { message ->
             Text(
                 text = message,
@@ -231,7 +239,6 @@ fun PlanEditorUi(
         PrimaryButton(
             text = "Save block",
             onClick = { onEvent(PlanEditorEvent.Save) },
-            enabled = state.canSave,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.Gutter),
@@ -263,8 +270,6 @@ fun PlanEditorUi(
                 onEvent(PlanEditorEvent.SetStart(it))
                 startPicker = false
             },
-            isAllowed = { state.editing || state.date != state.today || !it.isBefore(state.now) },
-            blockedHint = "That time has already passed today",
         )
     }
     if (endPicker) {
