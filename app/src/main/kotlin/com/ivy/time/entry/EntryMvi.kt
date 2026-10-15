@@ -137,7 +137,7 @@ class EntryViewModel @Inject constructor(
             categoryId = selectedCategory,
             projectId = projectId.value,
             note = note.value,
-            dateLabel = formatters.date(date.value),
+            dateLabel = formatters.shortDate(date.value),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
             durationLabel = duration().formatShort(),
