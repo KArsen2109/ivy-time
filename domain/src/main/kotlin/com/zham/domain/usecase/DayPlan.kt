@@ -7,6 +7,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** One day with its plan, what actually happened, and how far the two agree. */
 data class DayPlan(
@@ -94,10 +95,14 @@ private fun coveredBy(
     if (clippedEnd.isAfter(clippedStart)) clippedStart to clippedEnd else null
 })
 
-/** Minutes from midnight, for placing something on the hour ruler. */
+/**
+ * Minutes from midnight on the wall clock, for placing something on the hour ruler. Clock-face
+ * time, not elapsed time: on a day the clocks change, 03:30 is still 03:30 on the ruler.
+ */
 fun minutesFromMidnight(instant: Instant, date: LocalDate, zone: ZoneId): Int {
-    val dayStart = date.atStartOfDay(zone).toInstant()
-    return (Duration.between(dayStart, instant).toMinutes()).toInt()
+    val local = instant.atZone(zone)
+    val days = ChronoUnit.DAYS.between(date, local.toLocalDate())
+    return (days * 1440 + local.hour * 60 + local.minute).toInt()
 }
 
 /** The completions of [planId] as a set, for a quick `in` check. */

@@ -26,6 +26,7 @@ import com.zham.domain.usecase.UncompletePlanUseCase
 import com.zham.domain.usecase.DateRange
 import com.zham.domain.usecase.dailyTotals
 import com.zham.domain.usecase.dayPlan
+import com.zham.domain.usecase.minutesFromMidnight
 import com.zham.domain.usecase.summarize
 import com.zham.domain.usecase.totalIn
 import io.kotest.matchers.shouldBe
@@ -258,5 +259,16 @@ class FixesTest {
     @Test
     fun `daily totals of an empty range are empty`() {
         dailyTotals(emptyList(), DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1)), UTC, at(4, 0)) shouldBe emptyList()
+    }
+
+    @Test
+    fun `the ruler follows the wall clock across a clock change`() {
+        val paris = java.time.ZoneId.of("Europe/Paris")
+        val day = LocalDate.of(2026, 3, 29) // clocks go from 02:00 to 03:00
+        val after = Instant.parse("2026-03-29T01:30:00Z") // 03:30 in Paris
+        minutesFromMidnight(after, day, paris) shouldBe 3 * 60 + 30
+        minutesFromMidnight(Instant.parse("2026-03-28T23:30:00Z"), day, paris) shouldBe 30
+        minutesFromMidnight(Instant.parse("2026-03-29T22:30:00Z"), day, paris) shouldBe 24 * 60 + 30
+        minutesFromMidnight(Instant.parse("2026-03-27T23:30:00Z"), day, paris) shouldBe -(23 * 60 + 30)
     }
 }
