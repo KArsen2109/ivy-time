@@ -36,21 +36,27 @@ fun dayPlan(
     val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
     val entries = allEntries.filter { it.start < dayEnd && (it.end ?: now) > dayStart }
 
-    val planned = occurrences.fold(Duration.ZERO) { acc, it -> acc + it.plan.duration }
+    // Only the part of a block inside this day counts, so a block past midnight is split between days.
+    val planned = occurrences.fold(Duration.ZERO) { acc, it ->
+        acc + Duration.between(maxOf(it.startsAt, dayStart), minOf(it.endsAt, dayEnd))
+    }
     val tracked = totalIn(entries, dayStart, dayEnd, now)
 
     val kept = occurrences.fold(Duration.ZERO) { acc, occurrence ->
         val matching = entries.filter {
             occurrence.plan.categoryId == null || it.categoryId == occurrence.plan.categoryId
         }
-        acc + overlap(matching, occurrence.startsAt, occurrence.endsAt, now)
+        acc + overlap(matching, maxOf(occurrence.startsAt, dayStart), minOf(occurrence.endsAt, dayEnd), now)
     }
 
     val plannedWindows = occurrences.map { it.startsAt to it.endsAt }
-    val unplanned = entries.fold(Duration.ZERO) { acc, entry ->
+    // Entries may overlap each other; the stretches are merged so no minute is counted twice.
+    val trackedRanges = merge(entries.mapNotNull { entry ->
         val start = maxOf(entry.start, dayStart)
         val end = minOf(entry.end ?: now, dayEnd)
-        if (!end.isAfter(start)) return@fold acc
+        if (end.isAfter(start)) start to end else null
+    })
+    val unplanned = trackedRanges.fold(Duration.ZERO) { acc, (start, end) ->
         acc + Duration.between(start, end) - coveredBy(plannedWindows, start, end)
     }
 
@@ -71,37 +77,22 @@ private fun overlap(
     from: Instant,
     to: Instant,
     now: Instant,
-): Duration = merge(entries.mapNotNull { entry ->
+): Duration = unionLength(entries.mapNotNull { entry ->
     val start = maxOf(entry.start, from)
     val end = minOf(entry.end ?: now, to)
     if (end.isAfter(start)) start to end else null
-}).fold(Duration.ZERO) { acc, (start, end) -> acc + Duration.between(start, end) }
+})
 
 /** How much of `[from, to)` falls inside any of the windows. */
 private fun coveredBy(
     windows: List<Pair<Instant, Instant>>,
     from: Instant,
     to: Instant,
-): Duration = merge(windows.mapNotNull { (start, end) ->
+): Duration = unionLength(windows.mapNotNull { (start, end) ->
     val clippedStart = maxOf(start, from)
     val clippedEnd = minOf(end, to)
     if (clippedEnd.isAfter(clippedStart)) clippedStart to clippedEnd else null
-}).fold(Duration.ZERO) { acc, (start, end) -> acc + Duration.between(start, end) }
-
-private fun merge(ranges: List<Pair<Instant, Instant>>): List<Pair<Instant, Instant>> {
-    if (ranges.isEmpty()) return emptyList()
-    val sorted = ranges.sortedBy { it.first }
-    val merged = mutableListOf(sorted.first())
-    sorted.drop(1).forEach { (start, end) ->
-        val (lastStart, lastEnd) = merged.last()
-        if (start > lastEnd) {
-            merged += start to end
-        } else if (end > lastEnd) {
-            merged[merged.lastIndex] = lastStart to end
-        }
-    }
-    return merged
-}
+})
 
 /** Minutes from midnight, for placing something on the hour ruler. */
 fun minutesFromMidnight(instant: Instant, date: LocalDate, zone: ZoneId): Int {

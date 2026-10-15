@@ -6,9 +6,14 @@ import arrow.core.right
 import com.zham.domain.model.TimeEntry
 import com.zham.domain.model.TimeError
 import com.zham.domain.model.TimeRepository
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Instant
 import javax.inject.Inject
+
+/** Checking for a running timer and saving the new one must not interleave, or two could start. */
+private val timerLock = Mutex()
 
 class StartTimerUseCase @Inject constructor(
     private val repository: TimeRepository,
@@ -19,8 +24,8 @@ class StartTimerUseCase @Inject constructor(
         projectId: Long?,
         note: String,
         description: String = "",
-    ): Either<TimeError, Unit> {
-        if (repository.findRunning() != null) return TimeError.TimerAlreadyRunning.left()
+    ): Either<TimeError, Unit> = timerLock.withLock {
+        if (repository.findRunning() != null) return@withLock TimeError.TimerAlreadyRunning.left()
         repository.save(
             TimeEntry(
                 id = 0,
@@ -32,7 +37,7 @@ class StartTimerUseCase @Inject constructor(
                 description = description.trim(),
             )
         )
-        return Unit.right()
+        Unit.right()
     }
 }
 
@@ -40,10 +45,10 @@ class StopTimerUseCase @Inject constructor(
     private val repository: TimeRepository,
     private val clock: Clock,
 ) {
-    suspend operator fun invoke(): Either<TimeError, Unit> {
-        val running = repository.findRunning() ?: return TimeError.NoRunningTimer.left()
+    suspend operator fun invoke(): Either<TimeError, Unit> = timerLock.withLock {
+        val running = repository.findRunning() ?: return@withLock TimeError.NoRunningTimer.left()
         repository.save(running.copy(end = clock.instant()))
-        return Unit.right()
+        Unit.right()
     }
 }
 

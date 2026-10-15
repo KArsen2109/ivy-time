@@ -52,7 +52,8 @@ fun PlanBlock.occursOn(date: LocalDate): Boolean {
         RepeatRule.Once -> date == startDate
         RepeatRule.Daily -> true
         is RepeatRule.Weekly -> date.dayOfWeek in rule.days
-        RepeatRule.Monthly -> date.dayOfMonth == startDate.dayOfMonth
+        // A block set for the 31st falls on the last day of shorter months instead of skipping them.
+        RepeatRule.Monthly -> date.dayOfMonth == minOf(startDate.dayOfMonth, date.lengthOfMonth())
     }
 }
 
@@ -72,11 +73,20 @@ fun PlanBlock.occurrenceOn(
     )
 }
 
+/**
+ * What is on [date]: the blocks that start that day, plus the tail of yesterday's blocks that
+ * ran past midnight. A spilled occurrence keeps yesterday's [PlanOccurrence.date].
+ */
 fun occurrencesOn(
     plans: List<PlanBlock>,
     date: LocalDate,
     zone: ZoneId,
     completed: Set<PlanCompletion>,
-): List<PlanOccurrence> = plans
-    .mapNotNull { it.occurrenceOn(date, zone, completed) }
-    .sortedBy { it.startsAt }
+): List<PlanOccurrence> {
+    val dayStart = date.atStartOfDay(zone).toInstant()
+    val spilled = plans
+        .mapNotNull { it.occurrenceOn(date.minusDays(1), zone, completed) }
+        .filter { it.endsAt.isAfter(dayStart) }
+    return (spilled + plans.mapNotNull { it.occurrenceOn(date, zone, completed) })
+        .sortedBy { it.startsAt }
+}

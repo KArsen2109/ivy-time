@@ -10,6 +10,7 @@ import com.zham.domain.model.TimeEntry
 import com.zham.domain.model.TimeError
 import com.zham.domain.model.TimeRepository
 import com.zham.domain.model.occurrenceOn
+import kotlinx.coroutines.flow.firstOrNull
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalTime
@@ -57,6 +58,11 @@ class CompletePlanUseCase @Inject constructor(
         val occurrence = plan.occurrenceOn(date, clock.zone, emptySet())
             ?: return TimeError.PlanNotFound.left()
 
+        // A second tap must not log the same time again.
+        val alreadyDone = planRepository.observeCompletions().firstOrNull().orEmpty()
+            .any { it.planId == planId && it.date == date }
+        if (alreadyDone) return Unit.right()
+
         val end = minOf(occurrence.endsAt, clock.instant())
         if (!end.isAfter(occurrence.startsAt)) return TimeError.EndInTheFuture.left()
 
@@ -72,6 +78,30 @@ class CompletePlanUseCase @Inject constructor(
             )
         )
         planRepository.setCompleted(planId, date, completed = true)
+        return Unit.right()
+    }
+}
+
+/** Takes a block's completion back and removes the record that ticking it created. */
+class UncompletePlanUseCase @Inject constructor(
+    private val planRepository: PlanRepository,
+    private val timeRepository: TimeRepository,
+    private val clock: Clock,
+) {
+    suspend operator fun invoke(planId: Long, date: LocalDate): Either<TimeError, Unit> {
+        val plan = planRepository.findById(planId) ?: return TimeError.PlanNotFound.left()
+        val occurrence = plan.occurrenceOn(date, clock.zone, emptySet())
+            ?: return TimeError.PlanNotFound.left()
+
+        // The record made by completing is recognised by what it was copied from.
+        timeRepository.observeEntries().firstOrNull().orEmpty()
+            .filter {
+                it.start == occurrence.startsAt && it.end != null &&
+                    it.categoryId == plan.categoryId && it.projectId == plan.projectId &&
+                    it.note == plan.note
+            }
+            .forEach { timeRepository.delete(it.id) }
+        planRepository.setCompleted(planId, date, completed = false)
         return Unit.right()
     }
 }

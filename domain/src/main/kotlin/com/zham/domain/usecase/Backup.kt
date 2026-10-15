@@ -41,12 +41,13 @@ object Csv {
         val description: String = "",
     )
 
-    /** Rows that cannot be parsed are skipped, so one bad line cannot fail the whole import. */
-    fun parse(csv: String): List<Row> = csv.lineSequence()
+    /**
+     * Rows that cannot be parsed are skipped, so one bad line cannot fail the whole import.
+     * A quoted cell may hold line breaks, which is how a multi-line description is stored.
+     */
+    fun parse(csv: String): List<Row> = records(csv.removePrefix("\uFEFF"))
         .drop(1)
-        .mapNotNull { line ->
-            if (line.isBlank()) return@mapNotNull null
-            val cells = splitLine(line)
+        .mapNotNull { cells ->
             if (cells.size < 5) return@mapNotNull null
             val start = runCatching { Instant.parse(cells[0]) }.getOrNull()
                 ?: return@mapNotNull null
@@ -62,34 +63,44 @@ object Csv {
         .toList()
 
     private fun escape(value: String): String =
-        if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+        if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r')) {
             "\"" + value.replace("\"", "\"\"") + "\""
         } else {
             value
         }
 
-    private fun splitLine(line: String): List<String> {
-        val cells = mutableListOf<String>()
+    /** Splits the text into records of cells, honouring quotes, doubled quotes and line breaks. */
+    private fun records(text: String): List<List<String>> {
+        val result = mutableListOf<List<String>>()
+        var cells = mutableListOf<String>()
         val current = StringBuilder()
         var quoted = false
         var index = 0
-        while (index < line.length) {
-            val char = line[index]
+        fun endRecord() {
+            cells += current.toString()
+            current.clear()
+            if (!(cells.size == 1 && cells[0].isEmpty())) result += cells
+            cells = mutableListOf()
+        }
+        while (index < text.length) {
+            val char = text[index]
             when {
-                quoted && char == '"' && line.getOrNull(index + 1) == '"' -> {
+                quoted && char == '"' && text.getOrNull(index + 1) == '"' -> {
                     current.append('"')
                     index++
                 }
                 char == '"' -> quoted = !quoted
-                char == ',' && !quoted -> {
+                !quoted && char == ',' -> {
                     cells += current.toString()
                     current.clear()
                 }
+                !quoted && char == '\r' -> Unit
+                !quoted && char == '\n' -> endRecord()
                 else -> current.append(char)
             }
             index++
         }
-        cells += current.toString()
-        return cells
+        if (current.isNotEmpty() || cells.isNotEmpty()) endRecord()
+        return result
     }
 }

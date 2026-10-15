@@ -52,9 +52,7 @@ fun summarize(
     now: Instant,
 ): List<CategoryTotal> = clip(entries, from, to, now)
     .groupBy({ it.first.categoryId }, { it.second })
-    .map { (categoryId, durations) ->
-        CategoryTotal(categoryId, durations.fold(Duration.ZERO, Duration::plus))
-    }
+    .map { (categoryId, ranges) -> CategoryTotal(categoryId, unionLength(ranges)) }
     .sortedByDescending { it.total }
 
 /** The same split by project instead of category. */
@@ -65,11 +63,12 @@ fun summarizeByProject(
     now: Instant,
 ): List<Pair<Long?, Duration>> = clip(entries, from, to, now)
     .groupBy({ it.first.projectId }, { it.second })
-    .map { (projectId, durations) -> projectId to durations.fold(Duration.ZERO, Duration::plus) }
+    .map { (projectId, ranges) -> projectId to unionLength(ranges) }
     .sortedByDescending { it.second }
 
+/** Overlapping records are counted once, so a day can never add up to more than 24 hours. */
 fun totalIn(entries: List<TimeEntry>, from: Instant, to: Instant, now: Instant): Duration =
-    clip(entries, from, to, now).fold(Duration.ZERO) { acc, it -> acc + it.second }
+    unionLength(clip(entries, from, to, now).map { it.second })
 
 /** Time per day of the range, for the bar chart. Days with nothing tracked are kept as zero. */
 fun dailyTotals(
@@ -93,10 +92,10 @@ private fun clip(
     from: Instant,
     to: Instant,
     now: Instant,
-): List<Pair<TimeEntry, Duration>> = entries.mapNotNull { entry ->
+): List<Pair<TimeEntry, Pair<Instant, Instant>>> = entries.mapNotNull { entry ->
     val start = maxOf(entry.start, from)
     val end = minOf(entry.end ?: now, to)
-    if (end.isAfter(start)) entry to Duration.between(start, end) else null
+    if (end.isAfter(start)) entry to (start to end) else null
 }
 
 data class GoalProgress(
