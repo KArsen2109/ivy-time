@@ -2,8 +2,10 @@ package com.ivy.time.day
 
 import androidx.compose.runtime.Immutable
 import com.ivy.design.system.TimelineBlock
+import com.ivy.time.ui.CalendarMarks
 import com.ivy.time.ui.PickerItem
 import kotlinx.collections.immutable.ImmutableList
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 @Immutable
@@ -24,6 +26,9 @@ data class DayState(
     val running: RunningUi?,
     val quickCategories: ImmutableList<PickerItem>,
     val sheet: PlanSheet?,
+    val today: LocalDate,
+    val weekStart: DayOfWeek,
+    val marks: CalendarMarks,
     val error: String?,
 )
 
@@ -36,11 +41,13 @@ data class PlanSheet(
     val title: String,
     val timeRange: String,
     val repeatLabel: String,
+    val description: String,
     val done: Boolean,
 )
 
 sealed interface DayEvent {
     data class ShiftDay(val days: Long) : DayEvent
+    data class SetDay(val date: LocalDate) : DayEvent
     data object GoToToday : DayEvent
     data class QuickStart(val categoryId: Long) : DayEvent
     data object StopTimer : DayEvent

@@ -223,7 +223,7 @@ fun MoreUi(
             }
 
             Text(
-                "Ivy Time 0.4 · open source",
+                "Zham 0.5 · open source",
                 style = MaterialTheme.typography.bodySmall,
                 color = IvyTheme.extra.slate,
                 modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 20.dp),

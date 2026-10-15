@@ -21,8 +21,9 @@ object DataModule {
     @Singleton
     fun database(@ApplicationContext context: Context): IvyTimeDatabase =
         Room.databaseBuilder(context, IvyTimeDatabase::class.java, "ivy-time.db")
-            // The 0.1 schema held only projects; there is nothing worth migrating from it.
-            .fallbackToDestructiveMigration()
+            .addMigrations(MIGRATION_3_4)
+            // Versions 1 and 2 were early builds with nothing worth carrying over.
+            .fallbackToDestructiveMigrationFrom(1, 2)
             .build()
 
     @Provides

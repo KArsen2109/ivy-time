@@ -28,6 +28,7 @@ data class PlanBlock(
     val end: LocalTime,
     val startDate: LocalDate,
     val repeat: RepeatRule,
+    val description: String = "",
 ) {
     val duration: Duration
         get() = Duration.between(start, end).let { if (it.isNegative || it.isZero) it.plusDays(1) else it }

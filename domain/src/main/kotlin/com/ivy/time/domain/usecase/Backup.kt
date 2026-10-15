@@ -7,10 +7,10 @@ import java.time.Instant
 
 /**
  * CSV backup of the entries, one row per entry, same idea as Ivy Wallet's export.
- * Columns: start, end, category, project, note — times are ISO-8601 UTC.
+ * Columns: start, end, category, project, note, description — times are ISO-8601 UTC.
  */
 object Csv {
-    const val HEADER = "start,end,category,project,note"
+    const val HEADER = "start,end,category,project,note,description"
 
     fun export(
         entries: List<TimeEntry>,
@@ -26,6 +26,7 @@ object Csv {
                     categories[entry.categoryId]?.name.orEmpty(),
                     projects[entry.projectId]?.name.orEmpty(),
                     entry.note,
+                    entry.description,
                 ).joinToString(",") { escape(it) }
             )
         }
@@ -37,6 +38,7 @@ object Csv {
         val category: String,
         val project: String,
         val note: String,
+        val description: String = "",
     )
 
     /** Rows that cannot be parsed are skipped, so one bad line cannot fail the whole import. */
@@ -54,6 +56,7 @@ object Csv {
                 category = cells[2],
                 project = cells[3],
                 note = cells[4],
+                description = cells.getOrNull(5).orEmpty(),
             )
         }
         .toList()

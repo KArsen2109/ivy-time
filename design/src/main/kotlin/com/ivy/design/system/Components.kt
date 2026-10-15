@@ -149,12 +149,14 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: ImageVector? = null,
+    /** Overrides the accent, so the running timer's button can wear its category's colour. */
+    color: Color? = null,
 ) {
     Row(
         modifier
             .clip(IvyShapes.Field)
             .background(
-                if (enabled) MaterialTheme.colorScheme.primary
+                if (enabled) color ?: MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant
             )
             .clickable(enabled = enabled, onClick = onClick)

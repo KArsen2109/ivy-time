@@ -18,6 +18,7 @@ import com.ivy.time.domain.usecase.dailyTotals
 import com.ivy.time.domain.usecase.formatHms
 import com.ivy.time.domain.usecase.formatShort
 import com.ivy.time.domain.usecase.goalProgress
+import com.ivy.time.domain.usecase.goalRecords
 import com.ivy.time.domain.usecase.periodRange
 import com.ivy.time.domain.usecase.summarize
 import io.kotest.matchers.shouldBe
@@ -156,6 +157,34 @@ class DomainTest {
     fun `csv import skips broken lines`() {
         val csv = Csv.HEADER + "\nnot-a-date,,,,\n" + "${T0},,Work,,hi\n"
         Csv.parse(csv).single().category shouldBe "Work"
+    }
+
+
+    @Test
+    fun `goal records list exactly what the goal total is made of`() {
+        val goal = Goal(1, "Sport", 5, Duration.ofHours(3), GoalPeriod.Week, GoalType.AtLeast)
+        val entries = listOf(
+            TimeEntry(1, 5, null, "Run", T0.minusSeconds(7200), T0),
+            TimeEntry(2, 5, null, "Gym", T0.minusSeconds(86_400 + 3600), T0.minusSeconds(86_400)),
+            TimeEntry(3, 2, null, "Other category", T0.minusSeconds(3600), T0),
+            TimeEntry(4, 5, null, "Last month", T0.minusSeconds(40 * 86_400), T0.minusSeconds(40 * 86_400 - 3600)),
+        )
+        val today = LocalDate.of(2024, 1, 3)
+        val records = goalRecords(goal, entries, today, ZoneOffset.UTC, T0)
+        records.map { it.entry.id } shouldBe listOf(1L, 2L)
+        records.fold(Duration.ZERO) { acc, it -> acc + it.counted } shouldBe
+            goalProgress(goal, entries, today, ZoneOffset.UTC, T0).spent
+    }
+
+    @Test
+    fun `csv keeps the description and still reads the older five column files`() {
+        val entries = listOf(
+            TimeEntry(1, null, null, "Build", T0, T0.plusSeconds(60), description = "fixed, the \"timer\" bug"),
+        )
+        Csv.parse(Csv.export(entries, emptyMap(), emptyMap())).single().description shouldBe
+            "fixed, the \"timer\" bug"
+        val old = "start,end,category,project,note\n$T0,${T0.plusSeconds(60)},Work,,hi\n"
+        Csv.parse(old).single().description shouldBe ""
     }
 
     @Test

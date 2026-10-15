@@ -25,6 +25,7 @@ import com.ivy.time.ui.tickingNow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.Duration
@@ -45,6 +46,9 @@ data class TimerState(
     val note: String,
     val categories: ImmutableList<PickerItem>,
     val selectedCategoryId: Long?,
+    val projects: ImmutableList<PickerItem>,
+    val selectedProjectId: Long?,
+    val categoryName: String,
     val todayLabel: String,
     val todayTotal: String,
     val records: ImmutableList<RecordRow>,
@@ -63,6 +67,7 @@ data class RecordRow(
 
 sealed interface TimerEvent {
     data class SelectCategory(val id: Long?) : TimerEvent
+    data class SelectProject(val id: Long?) : TimerEvent
     data class SetNote(val note: String) : TimerEvent
     data object Toggle : TimerEvent
     data class Resume(val recordId: Long) : TimerEvent
@@ -82,6 +87,7 @@ class TimerViewModel @Inject constructor(
 ) : ComposeViewModel<TimerState, TimerEvent>() {
 
     private val picked = mutableStateOf<Long?>(null)
+    private val pickedProject = mutableStateOf<Long?>(null)
     private val note = mutableStateOf("")
     private val error = mutableStateOf<String?>(null)
 
@@ -118,8 +124,15 @@ class TimerViewModel @Inject constructor(
                 else -> selectedCategory?.name ?: "Nothing selected"
             },
             subtitle = when {
-                running != null -> "since " + formatters.time(running.start)
-                selectedCategory != null -> "ready to start"
+                running != null -> listOfNotNull(
+                    runningCategory?.name?.takeIf { running.note.isNotBlank() },
+                    projectsById[running.projectId]?.name,
+                    "since " + formatters.time(running.start),
+                ).joinToString(" · ")
+                selectedCategory != null -> listOfNotNull(
+                    selectedCategory.name,
+                    projectsById[pickedProject.value]?.name,
+                ).joinToString(" / ") + " is selected"
                 else -> "add a category first"
             },
             color = Color(
@@ -130,6 +143,16 @@ class TimerViewModel @Inject constructor(
                 .map { PickerItem(it.id, it.name, Color(it.color), it.icon) }
                 .toImmutableList(),
             selectedCategoryId = selected,
+            // A project always sits under one category, so only that category's are offered.
+            projects = projects
+                .filter { !it.archived && it.categoryId == selected }
+                .map { PickerItem(it.id, it.name, Color(it.color)) }
+                .toImmutableList(),
+            selectedProjectId = pickedProject.value?.takeIf { id ->
+                projectsById[id]?.categoryId == selected
+            },
+            categoryName = (running?.let { runningCategory } ?: selectedCategory)?.name
+                ?: "Nothing selected",
             todayLabel = formatters.weekdayAndDate(today),
             todayTotal = todayEntries
                 .fold(Duration.ZERO) { acc, it -> acc + it.duration(now) }
@@ -140,10 +163,11 @@ class TimerViewModel @Inject constructor(
                     id = entry.id,
                     title = entry.note.ifBlank { category?.name ?: "No category" },
                     detail = listOfNotNull(
-                        category?.name?.takeIf { entry.note.isNotBlank() },
-                        projectsById[entry.projectId]?.name,
+                        listOfNotNull(category?.name, projectsById[entry.projectId]?.name)
+                            .joinToString(" / ").takeIf { it.isNotBlank() },
                         formatters.time(entry.start) + " – " +
                             (entry.end?.let(formatters::time) ?: "now"),
+                        entry.description.takeIf { it.isNotBlank() },
                     ).joinToString(" · "),
                     duration = entry.duration(now).formatShort(),
                     color = Color(category?.color ?: UNCATEGORISED),
@@ -156,21 +180,31 @@ class TimerViewModel @Inject constructor(
 
     override fun onEvent(event: TimerEvent) {
         when (event) {
-            is TimerEvent.SelectCategory -> picked.value = event.id
+            is TimerEvent.SelectCategory -> {
+                picked.value = event.id
+                pickedProject.value = null
+            }
+            is TimerEvent.SelectProject -> pickedProject.value = event.id
             is TimerEvent.SetNote -> note.value = event.note
             TimerEvent.Toggle -> viewModelScope.launch {
                 val running = timeRepository.findRunning()
                 val result = if (running != null) {
                     stopTimer()
                 } else {
-                    startTimer(picked.value, null, note.value).also { note.value = "" }
+                    startTimer(
+                        picked.value ?: categoryRepository.observeCategories().first().firstOrNull()?.id,
+                        pickedProject.value,
+                        note.value,
+                    )
+                        .also { note.value = "" }
                 }
                 result.fold({ error.value = it.message() }, { error.value = null })
             }
             is TimerEvent.Resume -> viewModelScope.launch {
                 val source = timeRepository.findById(event.recordId) ?: return@launch
                 picked.value = source.categoryId
-                startTimer(source.categoryId, source.projectId, source.note)
+                pickedProject.value = source.projectId
+                startTimer(source.categoryId, source.projectId, source.note, source.description)
                     .fold({ error.value = it.message() }, { error.value = null })
             }
             is TimerEvent.Delete -> viewModelScope.launch {

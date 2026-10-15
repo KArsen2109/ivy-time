@@ -27,13 +27,17 @@ class SavePlanUseCase @Inject constructor(
         end: LocalTime,
         startDate: LocalDate,
         repeat: RepeatRule,
+        description: String = "",
     ): Either<TimeError, Unit> {
         if (start == end) return TimeError.NonPositiveDuration.left()
         if (repeat is RepeatRule.Weekly && repeat.days.isEmpty()) {
             return TimeError.NoWeekdaysChosen.left()
         }
         repository.save(
-            PlanBlock(id, categoryId, projectId, note.trim(), start, end, startDate, repeat)
+            PlanBlock(
+                id, categoryId, projectId, note.trim(), start, end, startDate, repeat,
+                description.trim(),
+            )
         )
         return Unit.right()
     }
@@ -64,6 +68,7 @@ class CompletePlanUseCase @Inject constructor(
                 note = plan.note,
                 start = occurrence.startsAt,
                 end = end,
+                description = plan.description,
             )
         )
         planRepository.setCompleted(planId, date, completed = true)

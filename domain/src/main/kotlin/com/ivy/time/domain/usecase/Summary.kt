@@ -144,3 +144,36 @@ fun Duration.formatShort(): String {
     val minutes = toMinutes().coerceAtLeast(0)
     return if (minutes >= 60) "%dh %02dm".format(minutes / 60, minutes % 60) else "${minutes}m"
 }
+
+/** One record that counts toward a goal, with the part of it that falls inside the goal's period. */
+data class GoalRecord(val entry: TimeEntry, val date: LocalDate, val counted: Duration)
+
+/**
+ * The records a goal's total is made of, newest first, so the number on the card can be explained.
+ * The period is the week or month that contains [anchor].
+ */
+fun goalRecords(
+    goal: Goal,
+    entries: List<TimeEntry>,
+    anchor: LocalDate,
+    zone: ZoneId,
+    now: Instant,
+    weekStart: DayOfWeek = DayOfWeek.MONDAY,
+): List<GoalRecord> {
+    val range = periodRange(
+        type = if (goal.period == GoalPeriod.Week) PeriodType.Week else PeriodType.Month,
+        anchor = anchor,
+        weekStart = weekStart,
+    )
+    val from = range.startInstant(zone)
+    val to = range.endInstant(zone)
+    return entries
+        .filter { goal.categoryId == null || it.categoryId == goal.categoryId }
+        .mapNotNull { entry ->
+            val start = maxOf(entry.start, from)
+            val end = minOf(entry.end ?: now, to)
+            if (!end.isAfter(start)) return@mapNotNull null
+            GoalRecord(entry, start.atZone(zone).toLocalDate(), Duration.between(start, end))
+        }
+        .sortedByDescending { it.entry.start }
+}

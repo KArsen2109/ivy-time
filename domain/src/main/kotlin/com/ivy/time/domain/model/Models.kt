@@ -34,6 +34,7 @@ data class TimeEntry(
     val note: String,
     val start: Instant,
     val end: Instant?,
+    val description: String = "",
 ) {
     val isRunning: Boolean get() = end == null
 

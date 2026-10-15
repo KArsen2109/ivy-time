@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zham: a hand standing on its pivot, with a trail that sweeps across it and fades in from nothing. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.85"
+        android:scaleY="0.85"
+        android:translateX="7.7"
+        android:translateY="15.75">
+        <!-- the trail starts up and left of the hand, passes behind it and ends round to the right -->
+        <path
+            android:pathData="M31.6,29.8 A32,32 0 0 1 77.7,72"
+            android:strokeWidth="11"
+            android:strokeLineCap="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="31.6"
+                    android:startY="29.8"
+                    android:endX="77.7"
+                    android:endY="72">
+                    <item android:offset="0" android:color="#1F5B4BFF" />
+                    <item android:offset="0.5" android:color="#B35B4BFF" />
+                    <item android:offset="1" android:color="#FF5B4BFF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- the hand -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M50,12 a4,4 0 0 1 4,4 L54,64 a4,4 0 0 1 -4,4 a4,4 0 0 1 -4,-4 L46,16 a4,4 0 0 1 4,-4 Z" />
+        <!-- the pivot, which is also the present moment -->
+        <path
+            android:fillColor="#FF8A3D"
+            android:pathData="M45,56 a5,5 0 1 0 10,0 a5,5 0 1 0 -10,0" />
+    </group>
+</vector>

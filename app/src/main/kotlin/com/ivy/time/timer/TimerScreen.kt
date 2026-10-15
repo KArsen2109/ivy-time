@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ivy.design.system.ChoiceChip
 import com.ivy.design.system.ColorDot
@@ -65,19 +66,20 @@ fun TimerUi(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                // The ring, the digits and the button all wear the category being tracked.
                 ProgressRing(
                     fraction = state.hourFraction,
-                    color = if (state.running) IvyTheme.extra.signal else state.color,
+                    color = state.color,
+                    size = 232.dp,
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 28.dp),
+                    ) {
                         Text(
                             text = state.elapsed,
-                            style = MaterialTheme.typography.displayMedium,
-                            color = if (state.running) {
-                                IvyTheme.extra.signal
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
+                            style = MaterialTheme.typography.displayMedium.copy(fontSize = 34.sp),
+                            color = if (state.running) state.color else MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -111,6 +113,29 @@ fun TimerUi(
                         )
                     }
                 }
+                if (state.projects.isNotEmpty()) {
+                    SectionLabel("Project in " + state.categoryName)
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = Spacing.Gutter),
+                    ) {
+                        items(state.projects, key = { it.id }) { project ->
+                            ChoiceChip(
+                                label = project.name,
+                                selected = state.selectedProjectId == project.id,
+                                color = state.color,
+                                onClick = {
+                                    onEvent(
+                                        TimerEvent.SelectProject(
+                                            if (state.selectedProjectId == project.id) null else project.id
+                                        )
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = state.note,
                     onValueChange = { onEvent(TimerEvent.SetNote(it)) },
@@ -126,7 +151,8 @@ fun TimerUi(
             }
 
             PrimaryButton(
-                text = if (state.running) "Stop" else "Start",
+                text = if (state.running) "Stop" else "Start " + state.categoryName,
+                color = state.color,
                 onClick = { onEvent(TimerEvent.Toggle) },
                 icon = if (state.running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
                 modifier = Modifier

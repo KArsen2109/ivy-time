@@ -9,10 +9,12 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 class TimeFormatters(private val zone: ZoneId, use24Hours: Boolean) {
-    private val time = DateTimeFormatter.ofPattern(if (use24Hours) "HH:mm" else "h:mm a")
-    private val full = DateTimeFormatter.ofPattern("EEEE d MMMM")
-    private val short = DateTimeFormatter.ofPattern("EEE d MMM")
-    private val dayMonth = DateTimeFormatter.ofPattern("d MMM")
+    // English on purpose: the app must not follow the phone's language, which is what showed
+    // Russian weekday names on a phone set to Russian.
+    private val time = DateTimeFormatter.ofPattern(if (use24Hours) "HH:mm" else "h:mm a", Locale.ENGLISH)
+    private val full = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ENGLISH)
+    private val short = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+    private val dayMonth = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 
     fun time(instant: Instant): String = time.withZone(zone).format(instant)
 
@@ -32,5 +34,5 @@ class TimeFormatters(private val zone: ZoneId, use24Hours: Boolean) {
     }
 
     fun weekdayInitial(date: LocalDate): String =
-        date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(2)
+        date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.ENGLISH).take(2)
 }

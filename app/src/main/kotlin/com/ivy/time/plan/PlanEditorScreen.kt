@@ -38,8 +38,8 @@ import com.ivy.design.system.PrimaryButton
 import com.ivy.design.system.SectionLabel
 import com.ivy.design.system.Segmented
 import com.ivy.design.system.Spacing
-import com.ivy.time.ui.IvyDatePickerDialog
-import com.ivy.time.ui.IvyTimePickerDialog
+import com.ivy.design.system.TimeKeypadDialog
+import com.ivy.time.ui.CalendarSheet
 import com.ivy.time.ui.PickerRow
 import java.time.DayOfWeek
 
@@ -158,12 +158,23 @@ fun PlanEditorUi(
         OutlinedTextField(
             value = state.note,
             onValueChange = { onEvent(PlanEditorEvent.SetNote(it)) },
-            label = { Text("What is this block for?") },
+            label = { Text("Title") },
             singleLine = true,
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.Gutter, vertical = 16.dp),
+        )
+        OutlinedTextField(
+            value = state.description,
+            onValueChange = { onEvent(PlanEditorEvent.SetDescription(it)) },
+            label = { Text("Description (optional)") },
+            minLines = 2,
+            maxLines = 5,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.Gutter),
         )
 
         SectionLabel("Repeats")
@@ -227,26 +238,41 @@ fun PlanEditorUi(
     }
 
     if (datePicker) {
-        IvyDatePickerDialog(
-            initial = state.date,
+        CalendarSheet(
+            title = if (state.repeat == RepeatChoice.Once) "Day of this block" else "First day of this block",
+            selected = state.date,
+            today = state.today,
+            marks = state.marks,
+            weekStart = state.weekStart,
+            onPick = {
+                onEvent(PlanEditorEvent.SetDate(it))
+                datePicker = false
+            },
             onDismiss = { datePicker = false },
-            onPick = { onEvent(PlanEditorEvent.SetDate(it)) },
         )
     }
     if (startPicker) {
-        IvyTimePickerDialog(
+        TimeKeypadDialog(
+            title = "Block starts",
             initial = state.start,
-            use24Hours = state.use24Hours,
+            now = state.now,
             onDismiss = { startPicker = false },
-            onPick = { onEvent(PlanEditorEvent.SetStart(it)) },
+            onSet = {
+                onEvent(PlanEditorEvent.SetStart(it))
+                startPicker = false
+            },
         )
     }
     if (endPicker) {
-        IvyTimePickerDialog(
+        TimeKeypadDialog(
+            title = "Block ends",
             initial = state.end,
-            use24Hours = state.use24Hours,
+            now = state.now,
             onDismiss = { endPicker = false },
-            onPick = { onEvent(PlanEditorEvent.SetEnd(it)) },
+            onSet = {
+                onEvent(PlanEditorEvent.SetEnd(it))
+                endPicker = false
+            },
         )
     }
 }

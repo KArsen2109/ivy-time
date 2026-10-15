@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Check
@@ -33,10 +34,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ivy.design.system.ChoiceChip
@@ -49,6 +55,7 @@ import com.ivy.design.system.PrimaryButton
 import com.ivy.design.system.QuietButton
 import com.ivy.design.system.Spacing
 import com.ivy.design.system.StatPair
+import com.ivy.time.ui.CalendarSheet
 import com.ivy.design.system.IvyIcons
 import java.time.LocalDate
 
@@ -84,6 +91,7 @@ fun DayUi(
     modifier: Modifier = Modifier,
 ) {
     val scroll = rememberScrollState()
+    var calendarVisible by remember { mutableStateOf(false) }
     val density = LocalDensity.current
 
     // Open on the first thing that happens, not on midnight.
@@ -97,7 +105,7 @@ fun DayUi(
     }
 
     Column(modifier.fillMaxSize()) {
-        DateBar(state, onEvent)
+        DateBar(state, onEvent, onPickDate = { calendarVisible = true })
         Summary(state, onEvent, onPlanAt, onLogTime)
         state.error?.let { message ->
             Text(
@@ -121,9 +129,24 @@ fun DayUi(
                 onPlannedClick = { onEvent(DayEvent.OpenPlan(it)) },
                 onActualClick = onEditEntry,
                 onPlanAt = { minutes -> onPlanAt(state.date, minutes) },
-                modifier = Modifier.padding(end = Spacing.Gutter),
+                modifier = Modifier.padding(end = Spacing.Gutter, top = 12.dp),
             )
         }
+    }
+
+    if (calendarVisible) {
+        CalendarSheet(
+            title = "Show a day",
+            selected = state.date,
+            today = state.today,
+            marks = state.marks,
+            weekStart = state.weekStart,
+            onPick = {
+                onEvent(DayEvent.SetDay(it))
+                calendarVisible = false
+            },
+            onDismiss = { calendarVisible = false },
+        )
     }
 
     val sheet = state.sheet
@@ -148,7 +171,7 @@ fun DayUi(
 }
 
 @Composable
-private fun DateBar(state: DayState, onEvent: (DayEvent) -> Unit) {
+private fun DateBar(state: DayState, onEvent: (DayEvent) -> Unit, onPickDate: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -169,6 +192,9 @@ private fun DateBar(state: DayState, onEvent: (DayEvent) -> Unit) {
                 onClick = { onEvent(DayEvent.GoToToday) },
                 modifier = Modifier.padding(end = 4.dp),
             )
+        }
+        IconButton(onClick = onPickDate) {
+            Icon(Icons.Rounded.CalendarMonth, contentDescription = "Pick a date")
         }
         IconButton(onClick = { onEvent(DayEvent.ShiftDay(-1)) }) {
             Icon(Icons.Rounded.ChevronLeft, contentDescription = "Previous day")
@@ -279,6 +305,7 @@ private fun LaneHeader() {
             Modifier.weight(1f),
             style = MaterialTheme.typography.labelSmall,
             color = IvyTheme.extra.slate,
+            textAlign = TextAlign.End,
         )
     }
 }
@@ -303,6 +330,10 @@ private fun PlanSheetContent(
             style = MaterialTheme.typography.bodyMedium,
             color = IvyTheme.extra.slate,
         )
+        if (sheet.description.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(sheet.description, style = MaterialTheme.typography.bodyMedium)
+        }
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(

@@ -1,6 +1,7 @@
-# Ivy Time
+# Zham
 
-A day planner and time tracker for Android, built in Kotlin and Jetpack Compose.
+A day planner and time tracker for Android, built in Kotlin and Jetpack Compose. The name is
+Ժամ, the Armenian word for hour.
 
 ## The idea
 
@@ -41,6 +42,11 @@ The chrome is near monochrome, so the only colour on a screen belongs to the cat
 glance reads as data rather than decoration. Amber is reserved for two things and nothing else:
 the present moment and a running timer. Type is Instrument Sans with tabular figures, so times do
 not jitter in a column. The hour rules are the only structural lines in the app.
+
+## Mark
+
+A hand standing on its pivot, with a violet trail that sweeps across it and fades in from nothing.
+The amber dot at the pivot is the present moment, the same amber the app reserves for "now".
 
 ## Modules
 

@@ -38,8 +38,8 @@ import com.ivy.design.system.FieldButton
 import com.ivy.design.system.PrimaryButton
 import com.ivy.design.system.SectionLabel
 import com.ivy.design.system.Spacing
-import com.ivy.time.ui.IvyDatePickerDialog
-import com.ivy.time.ui.IvyTimePickerDialog
+import com.ivy.design.system.TimeKeypadDialog
+import com.ivy.time.ui.CalendarSheet
 import com.ivy.time.ui.PickerRow
 
 private val QUICK_MINUTES = listOf(15L, 30L, 60L, 120L, 240L, 480L)
@@ -112,11 +112,21 @@ fun EntryUi(
         OutlinedTextField(
             value = state.note,
             onValueChange = { onEvent(EntryEvent.SetNote(it)) },
-            label = { Text("Note") },
+            label = { Text("Title") },
             singleLine = true,
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 12.dp),
         )
+        OutlinedTextField(
+            value = state.description,
+            onValueChange = { onEvent(EntryEvent.SetDescription(it)) },
+            label = { Text("Description (optional)") },
+            minLines = 2,
+            maxLines = 5,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
+        )
+        Spacer(Modifier.height(12.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
@@ -188,26 +198,41 @@ fun EntryUi(
     }
 
     if (datePickerVisible) {
-        IvyDatePickerDialog(
-            initial = state.date,
+        CalendarSheet(
+            title = "Date of this record",
+            selected = state.date,
+            today = state.today,
+            marks = state.marks,
+            weekStart = state.weekStart,
+            onPick = {
+                onEvent(EntryEvent.SetDate(it))
+                datePickerVisible = false
+            },
             onDismiss = { datePickerVisible = false },
-            onPick = { onEvent(EntryEvent.SetDate(it)) },
         )
     }
     if (startPickerVisible) {
-        IvyTimePickerDialog(
+        TimeKeypadDialog(
+            title = "Start time",
             initial = state.start,
-            use24Hours = state.use24Hours,
+            now = state.now,
             onDismiss = { startPickerVisible = false },
-            onPick = { onEvent(EntryEvent.SetStart(it)) },
+            onSet = {
+                onEvent(EntryEvent.SetStart(it))
+                startPickerVisible = false
+            },
         )
     }
     if (endPickerVisible) {
-        IvyTimePickerDialog(
+        TimeKeypadDialog(
+            title = "End time",
             initial = state.end,
-            use24Hours = state.use24Hours,
+            now = state.now,
             onDismiss = { endPickerVisible = false },
-            onPick = { onEvent(EntryEvent.SetEnd(it)) },
+            onSet = {
+                onEvent(EntryEvent.SetEnd(it))
+                endPickerVisible = false
+            },
         )
     }
 }

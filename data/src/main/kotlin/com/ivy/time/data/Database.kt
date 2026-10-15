@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -82,7 +84,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class IvyTimeDatabase : RoomDatabase() {
@@ -124,4 +126,12 @@ interface PlanDao {
 
     @Query("UPDATE plan_blocks SET projectId = NULL WHERE projectId = :projectId")
     suspend fun detachProject(projectId: Long)
+}
+
+/** 3 to 4 adds the description to records and plan blocks, keeping every existing row. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE time_entries ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE plan_blocks ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+    }
 }

@@ -11,19 +11,23 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.ivy.time.data.SettingsStore
 import com.ivy.time.domain.model.CategoryRepository
+import com.ivy.time.domain.model.PlanRepository
 import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.TimeRepository
 import com.ivy.time.domain.usecase.SaveEntryUseCase
 import com.ivy.time.domain.usecase.formatShort
+import com.ivy.time.ui.CalendarMarks
 import com.ivy.time.ui.ComposeViewModel
 import com.ivy.time.ui.PickerItem
 import com.ivy.time.ui.TimeFormatters
+import com.ivy.time.ui.calendarMarks
 import com.ivy.time.ui.message
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalTime
@@ -37,6 +41,7 @@ data class EntryState(
     val categoryId: Long?,
     val projectId: Long?,
     val note: String,
+    val description: String,
     val dateLabel: String,
     val startLabel: String,
     val endLabel: String,
@@ -46,6 +51,10 @@ data class EntryState(
     val start: LocalTime,
     val end: LocalTime,
     val use24Hours: Boolean,
+    val today: LocalDate,
+    val now: LocalTime,
+    val weekStart: DayOfWeek,
+    val marks: CalendarMarks,
     val error: String?,
 )
 
@@ -53,6 +62,7 @@ sealed interface EntryEvent {
     data class SelectCategory(val id: Long?) : EntryEvent
     data class SelectProject(val id: Long?) : EntryEvent
     data class SetNote(val note: String) : EntryEvent
+    data class SetDescription(val description: String) : EntryEvent
     data class SetDate(val date: LocalDate) : EntryEvent
     data class SetStart(val time: LocalTime) : EntryEvent
     data class SetEnd(val time: LocalTime) : EntryEvent
@@ -65,6 +75,7 @@ sealed interface EntryEvent {
 @HiltViewModel
 class EntryViewModel @Inject constructor(
     private val timeRepository: TimeRepository,
+    private val planRepository: PlanRepository,
     private val categoryRepository: CategoryRepository,
     private val projectRepository: ProjectRepository,
     private val settingsStore: SettingsStore,
@@ -85,6 +96,7 @@ class EntryViewModel @Inject constructor(
     private val categoryId = mutableStateOf<Long?>(null)
     private val projectId = mutableStateOf<Long?>(null)
     private val note = mutableStateOf("")
+    private val description = mutableStateOf("")
     private val date = mutableStateOf(initialDate)
     private val start = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0).minusHours(1))
     private val end = mutableStateOf(LocalTime.now(clock).withSecond(0).withNano(0))
@@ -105,6 +117,7 @@ class EntryViewModel @Inject constructor(
                     categoryId.value = entry.categoryId
                     projectId.value = entry.projectId
                     note.value = entry.note
+                    description.value = entry.description
                     date.value = startLocal.toLocalDate()
                     start.value = startLocal.toLocalTime().withSecond(0).withNano(0)
                     end.value = endLocal.toLocalTime().withSecond(0).withNano(0)
@@ -120,6 +133,8 @@ class EntryViewModel @Inject constructor(
             .collectAsState(emptyList())
         val projects by remember { projectRepository.observeProjects() }.collectAsState(emptyList())
         val settings by remember { settingsStore.settings }.collectAsState(null)
+        val entries by remember { timeRepository.observeEntries() }.collectAsState(emptyList())
+        val plans by remember { planRepository.observePlans() }.collectAsState(emptyList())
         val use24Hours = settings?.use24Hours ?: true
         val formatters = TimeFormatters(clock.zone, use24Hours)
 
@@ -137,6 +152,7 @@ class EntryViewModel @Inject constructor(
             categoryId = selectedCategory,
             projectId = projectId.value,
             note = note.value,
+            description = description.value,
             dateLabel = formatters.shortDate(date.value),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
@@ -146,6 +162,10 @@ class EntryViewModel @Inject constructor(
             start = start.value,
             end = end.value,
             use24Hours = use24Hours,
+            today = LocalDate.now(clock),
+            now = LocalTime.now(clock).withSecond(0).withNano(0),
+            weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
+            marks = calendarMarks(entries, plans, clock.zone),
             error = error.value,
         )
     }
@@ -158,6 +178,7 @@ class EntryViewModel @Inject constructor(
             }
             is EntryEvent.SelectProject -> projectId.value = event.id
             is EntryEvent.SetNote -> note.value = event.note
+            is EntryEvent.SetDescription -> description.value = event.description
             is EntryEvent.SetDate -> date.value = event.date
             is EntryEvent.SetStart -> start.value = event.time
             is EntryEvent.SetEnd -> end.value = event.time
@@ -188,6 +209,7 @@ class EntryViewModel @Inject constructor(
                 note = note.value,
                 start = startInstant,
                 end = endInstant,
+                description = description.value,
             ).fold(
                 ifLeft = { error.value = it.message() },
                 ifRight = {

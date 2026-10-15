@@ -18,6 +18,7 @@ class StartTimerUseCase @Inject constructor(
         categoryId: Long?,
         projectId: Long?,
         note: String,
+        description: String = "",
     ): Either<TimeError, Unit> {
         if (repository.findRunning() != null) return TimeError.TimerAlreadyRunning.left()
         repository.save(
@@ -28,6 +29,7 @@ class StartTimerUseCase @Inject constructor(
                 note = note.trim(),
                 start = clock.instant(),
                 end = null,
+                description = description.trim(),
             )
         )
         return Unit.right()
@@ -60,6 +62,7 @@ class SaveEntryUseCase @Inject constructor(
         note: String,
         start: Instant,
         end: Instant,
+        description: String = "",
     ): Either<TimeError, Unit> {
         if (!end.isAfter(start)) return TimeError.EndNotAfterStart.left()
         if (end.isAfter(clock.instant())) return TimeError.EndInTheFuture.left()
@@ -71,6 +74,7 @@ class SaveEntryUseCase @Inject constructor(
                 note = note.trim(),
                 start = start,
                 end = end,
+                description = description.trim(),
             )
         )
         return Unit.right()

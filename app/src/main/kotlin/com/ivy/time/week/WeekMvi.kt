@@ -12,20 +12,25 @@ import com.ivy.design.system.WeekDayColumn
 import com.ivy.time.data.SettingsStore
 import com.ivy.time.domain.model.Category
 import com.ivy.time.domain.model.CategoryRepository
+import com.ivy.time.domain.model.GoalPeriod
 import com.ivy.time.domain.model.GoalRepository
 import com.ivy.time.domain.model.GoalType
 import com.ivy.time.domain.model.PlanRepository
+import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.TimeRepository
 import com.ivy.time.domain.model.occurrencesOn
 import com.ivy.time.domain.usecase.PeriodType
 import com.ivy.time.domain.usecase.dayPlan
 import com.ivy.time.domain.usecase.formatShort
 import com.ivy.time.domain.usecase.goalProgress
+import com.ivy.time.domain.usecase.goalRecords
 import com.ivy.time.domain.usecase.minutesFromMidnight
 import com.ivy.time.domain.usecase.periodRange
 import com.ivy.time.domain.usecase.shift
+import com.ivy.time.ui.CalendarMarks
 import com.ivy.time.ui.ComposeViewModel
 import com.ivy.time.ui.TimeFormatters
+import com.ivy.time.ui.calendarMarks
 import com.ivy.time.ui.tickingNow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -48,6 +53,9 @@ data class WeekState(
     val days: ImmutableList<WeekDayColumn>,
     val dates: ImmutableList<LocalDate>,
     val goals: ImmutableList<GoalRow>,
+    val today: LocalDate,
+    val weekStart: DayOfWeek,
+    val marks: CalendarMarks,
 )
 
 @Immutable
@@ -57,6 +65,23 @@ data class GoalRow(
     val detail: String,
     val fraction: Float,
     val met: Boolean,
+    val color: Color,
+    val recordCount: Int,
+    val periodLabel: String,
+    val days: ImmutableList<GoalDay>,
+)
+
+/** One day of a goal's records, so the total on the card can be traced to its parts. */
+@Immutable
+data class GoalDay(val title: String, val total: String, val records: ImmutableList<GoalRecordRow>)
+
+@Immutable
+data class GoalRecordRow(
+    val title: String,
+    val path: String,
+    val range: String,
+    val description: String,
+    val duration: String,
     val color: Color,
 )
 
@@ -70,6 +95,7 @@ class WeekViewModel @Inject constructor(
     private val planRepository: PlanRepository,
     private val categoryRepository: CategoryRepository,
     private val goalRepository: GoalRepository,
+    private val projectRepository: ProjectRepository,
     private val settingsStore: SettingsStore,
     private val clock: Clock,
 ) : ComposeViewModel<WeekState, WeekEvent>() {
@@ -85,6 +111,7 @@ class WeekViewModel @Inject constructor(
         val categories by remember { categoryRepository.observeCategories() }
             .collectAsState(emptyList())
         val goals by remember { goalRepository.observeGoals() }.collectAsState(emptyList())
+        val projects by remember { projectRepository.observeProjects() }.collectAsState(emptyList())
         val settings by remember { settingsStore.settings }.collectAsState(null)
         val now by tickingNow(clock, active = entries.any { it.isRunning })
 
@@ -95,6 +122,7 @@ class WeekViewModel @Inject constructor(
         val range = periodRange(PeriodType.Week, today, weekStart)
             .shift(PeriodType.Week, weekOffset.longValue)
         val categoriesById = categories.associateBy { it.id }
+        val projectsById = projects.associateBy { it.id }
         val completed = completions.toSet()
 
         val dates = (0..6).map { range.from.plusDays(it.toLong()) }
@@ -153,8 +181,9 @@ class WeekViewModel @Inject constructor(
             }.toImmutableList(),
             dates = dates.toImmutableList(),
             goals = goals.map { goal ->
-                val progress = goalProgress(goal, entries, today, zone, now, weekStart)
+                val progress = goalProgress(goal, entries, range.from, zone, now, weekStart)
                 val category: Category? = categoriesById[goal.categoryId]
+                val records = goalRecords(goal, entries, range.from, zone, now, weekStart)
                 GoalRow(
                     id = goal.id,
                     name = goal.name,
@@ -164,8 +193,42 @@ class WeekViewModel @Inject constructor(
                     fraction = progress.fraction,
                     met = progress.met,
                     color = Color(category?.color ?: UNCATEGORISED),
+                    recordCount = records.size,
+                    periodLabel = if (goal.period == GoalPeriod.Week) "this week" else "this month",
+                    days = records
+                        .groupBy { it.date }
+                        .toList()
+                        .sortedByDescending { it.first }
+                        .map { (date, dayRecords) ->
+                            GoalDay(
+                                title = formatters.shortDate(date),
+                                total = dayRecords
+                                    .fold(Duration.ZERO) { acc, it -> acc + it.counted }
+                                    .formatShort(),
+                                records = dayRecords.map { record ->
+                                    val entry = record.entry
+                                    val entryCategory = categoriesById[entry.categoryId]
+                                    GoalRecordRow(
+                                        title = entry.note.ifBlank { entryCategory?.name ?: "No category" },
+                                        path = listOfNotNull(
+                                            entryCategory?.name,
+                                            projectsById[entry.projectId]?.name,
+                                        ).joinToString(" / "),
+                                        range = formatters.time(entry.start) + " – " +
+                                            (entry.end?.let(formatters::time) ?: "now"),
+                                        description = entry.description,
+                                        duration = record.counted.formatShort(),
+                                        color = Color(entryCategory?.color ?: UNCATEGORISED),
+                                    )
+                                }.toImmutableList(),
+                            )
+                        }
+                        .toImmutableList(),
                 )
             }.toImmutableList(),
+            today = today,
+            weekStart = weekStart,
+            marks = calendarMarks(entries, plans, zone),
         )
     }
 

@@ -14,11 +14,14 @@ import com.ivy.time.domain.model.CategoryRepository
 import com.ivy.time.domain.model.PlanRepository
 import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.RepeatRule
+import com.ivy.time.domain.model.TimeRepository
 import com.ivy.time.domain.usecase.SavePlanUseCase
 import com.ivy.time.domain.usecase.formatShort
+import com.ivy.time.ui.CalendarMarks
 import com.ivy.time.ui.ComposeViewModel
 import com.ivy.time.ui.PickerItem
 import com.ivy.time.ui.TimeFormatters
+import com.ivy.time.ui.calendarMarks
 import com.ivy.time.ui.message
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -41,6 +44,7 @@ data class PlanEditorState(
     val categoryId: Long?,
     val projectId: Long?,
     val note: String,
+    val description: String,
     val dateLabel: String,
     val startLabel: String,
     val endLabel: String,
@@ -52,6 +56,10 @@ data class PlanEditorState(
     val start: LocalTime,
     val end: LocalTime,
     val use24Hours: Boolean,
+    val today: LocalDate,
+    val now: LocalTime,
+    val weekStart: DayOfWeek,
+    val marks: CalendarMarks,
     val error: String?,
 )
 
@@ -59,6 +67,7 @@ sealed interface PlanEditorEvent {
     data class SelectCategory(val id: Long?) : PlanEditorEvent
     data class SelectProject(val id: Long?) : PlanEditorEvent
     data class SetNote(val note: String) : PlanEditorEvent
+    data class SetDescription(val description: String) : PlanEditorEvent
     data class SetDate(val date: LocalDate) : PlanEditorEvent
     data class SetStart(val time: LocalTime) : PlanEditorEvent
     data class SetEnd(val time: LocalTime) : PlanEditorEvent
@@ -72,6 +81,7 @@ sealed interface PlanEditorEvent {
 @HiltViewModel
 class PlanEditorViewModel @Inject constructor(
     private val planRepository: PlanRepository,
+    private val timeRepository: TimeRepository,
     private val categoryRepository: CategoryRepository,
     private val projectRepository: ProjectRepository,
     private val settingsStore: SettingsStore,
@@ -90,6 +100,7 @@ class PlanEditorViewModel @Inject constructor(
     private val categoryId = mutableStateOf<Long?>(null)
     private val projectId = mutableStateOf<Long?>(null)
     private val note = mutableStateOf("")
+    private val description = mutableStateOf("")
     private val date = mutableStateOf(initialDate)
     private val start = mutableStateOf(LocalTime.ofSecondOfDay(startMinutes * 60L))
     private val end = mutableStateOf(LocalTime.ofSecondOfDay((startMinutes + 60) * 60L % 86400))
@@ -107,6 +118,7 @@ class PlanEditorViewModel @Inject constructor(
                     categoryId.value = plan.categoryId
                     projectId.value = plan.projectId
                     note.value = plan.note
+                    description.value = plan.description
                     date.value = plan.startDate
                     start.value = plan.start
                     end.value = plan.end
@@ -130,6 +142,8 @@ class PlanEditorViewModel @Inject constructor(
             .collectAsState(emptyList())
         val projects by remember { projectRepository.observeProjects() }.collectAsState(emptyList())
         val settings by remember { settingsStore.settings }.collectAsState(null)
+        val entries by remember { timeRepository.observeEntries() }.collectAsState(emptyList())
+        val plans by remember { planRepository.observePlans() }.collectAsState(emptyList())
         val use24Hours = settings?.use24Hours ?: true
         val formatters = TimeFormatters(clock.zone, use24Hours)
         val selected = categoryId.value
@@ -147,6 +161,7 @@ class PlanEditorViewModel @Inject constructor(
             categoryId = selected,
             projectId = projectId.value,
             note = note.value,
+            description = description.value,
             dateLabel = formatters.shortDate(date.value),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
@@ -158,6 +173,10 @@ class PlanEditorViewModel @Inject constructor(
             start = start.value,
             end = end.value,
             use24Hours = use24Hours,
+            today = LocalDate.now(clock),
+            now = LocalTime.now(clock).withSecond(0).withNano(0),
+            weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
+            marks = calendarMarks(entries, plans, clock.zone),
             error = error.value,
         )
     }
@@ -170,6 +189,7 @@ class PlanEditorViewModel @Inject constructor(
             }
             is PlanEditorEvent.SelectProject -> projectId.value = event.id
             is PlanEditorEvent.SetNote -> note.value = event.note
+            is PlanEditorEvent.SetDescription -> description.value = event.description
             is PlanEditorEvent.SetDate -> {
                 date.value = event.date
                 if (repeat.value == RepeatChoice.Weekly) {
@@ -204,6 +224,7 @@ class PlanEditorViewModel @Inject constructor(
                 categoryId = categoryId.value,
                 projectId = projectId.value,
                 note = note.value,
+                description = description.value,
                 start = start.value,
                 end = end.value,
                 startDate = date.value,

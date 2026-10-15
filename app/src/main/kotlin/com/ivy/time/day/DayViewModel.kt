@@ -31,6 +31,7 @@ import com.ivy.time.ui.ComposeViewModel
 import com.ivy.time.ui.PickerItem
 import com.ivy.time.ui.TimeFormatters
 import com.ivy.time.ui.message
+import com.ivy.time.ui.calendarMarks
 import com.ivy.time.ui.tickingNow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
@@ -131,10 +132,14 @@ class DayViewModel @Inject constructor(
                         timeRange = formatters.time(occurrence.plan.start) + " – " +
                             formatters.time(occurrence.plan.end),
                         repeatLabel = occurrence.plan.repeat.label(),
+                        description = occurrence.plan.description,
                         done = occurrence.done,
                     )
                 }
             },
+            today = today,
+            weekStart = settings?.weekStart ?: java.time.DayOfWeek.MONDAY,
+            marks = calendarMarks(entries, plans, zone),
             error = error.value,
         )
     }
@@ -149,10 +154,11 @@ class DayViewModel @Inject constructor(
             }
             is DayEvent.OpenPlan -> openPlanId.value = event.planId
             DayEvent.CloseSheet -> openPlanId.value = null
+            is DayEvent.SetDay -> selectedDay.set(event.date)
             is DayEvent.StartFromPlan -> viewModelScope.launch {
                 val plan = planRepository.findById(event.planId)
                 openPlanId.value = null
-                if (plan != null) launchStart(plan.categoryId, plan.projectId, plan.note)
+                if (plan != null) launchStart(plan.categoryId, plan.projectId, plan.note, plan.description)
             }
             is DayEvent.TogglePlanDone -> viewModelScope.launch {
                 val date = selectedDay.date.value
@@ -168,9 +174,9 @@ class DayViewModel @Inject constructor(
         }
     }
 
-    private fun launchStart(categoryId: Long?, projectId: Long?, note: String) {
+    private fun launchStart(categoryId: Long?, projectId: Long?, note: String, description: String = "") {
         viewModelScope.launch {
-            startTimer(categoryId, projectId, note)
+            startTimer(categoryId, projectId, note, description)
                 .fold({ error.value = it.message() }, { error.value = null })
         }
     }

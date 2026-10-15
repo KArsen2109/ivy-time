@@ -76,7 +76,7 @@ fun ProjectsUi(
             }
             if (state.projects.isEmpty()) {
                 EmptyNote(
-                    "A project is a longer effort inside a category, like Work and Ivy Time. " +
+                    "A project is a longer effort inside a category, like Work and a client site. " +
                         "Projects are optional."
                 )
             }
@@ -165,7 +165,8 @@ private fun ProjectDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = name.isNotBlank(),
+                // A project sits under exactly one category, so one has to be chosen first.
+                enabled = name.isNotBlank() && (categories.isEmpty() || categoryId != null),
                 onClick = { onSave(initial?.id ?: 0L, name, categoryId, color, archived) },
             ) { Text("Save") }
         },
