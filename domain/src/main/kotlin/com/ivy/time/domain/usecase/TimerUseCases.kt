@@ -3,23 +3,27 @@ package com.ivy.time.domain.usecase
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
-import com.ivy.time.domain.model.Project
-import com.ivy.time.domain.model.ProjectRepository
 import com.ivy.time.domain.model.TimeEntry
 import com.ivy.time.domain.model.TimeError
 import com.ivy.time.domain.model.TimeRepository
 import java.time.Clock
-import java.time.Duration
+import java.time.Instant
+import javax.inject.Inject
 
-class StartTimerUseCase(
+class StartTimerUseCase @Inject constructor(
     private val repository: TimeRepository,
     private val clock: Clock,
 ) {
-    suspend operator fun invoke(projectId: Long?, note: String): Either<TimeError, Unit> {
+    suspend operator fun invoke(
+        categoryId: Long?,
+        projectId: Long?,
+        note: String,
+    ): Either<TimeError, Unit> {
         if (repository.findRunning() != null) return TimeError.TimerAlreadyRunning.left()
         repository.save(
             TimeEntry(
                 id = 0,
+                categoryId = categoryId,
                 projectId = projectId,
                 note = note.trim(),
                 start = clock.instant(),
@@ -30,7 +34,7 @@ class StartTimerUseCase(
     }
 }
 
-class StopTimerUseCase(
+class StopTimerUseCase @Inject constructor(
     private val repository: TimeRepository,
     private val clock: Clock,
 ) {
@@ -41,37 +45,34 @@ class StopTimerUseCase(
     }
 }
 
-/** Logs already spent time: an entry of [duration] that ends now. */
-class LogTimeUseCase(
+/**
+ * Creates or updates a hand-written entry. [id] 0 inserts.
+ * The end must be after the start and must not lie in the future.
+ */
+class SaveEntryUseCase @Inject constructor(
     private val repository: TimeRepository,
     private val clock: Clock,
 ) {
     suspend operator fun invoke(
+        id: Long,
+        categoryId: Long?,
         projectId: Long?,
         note: String,
-        duration: Duration,
+        start: Instant,
+        end: Instant,
     ): Either<TimeError, Unit> {
-        if (duration.isZero || duration.isNegative) return TimeError.EndNotAfterStart.left()
-        val end = clock.instant()
+        if (!end.isAfter(start)) return TimeError.EndNotAfterStart.left()
+        if (end.isAfter(clock.instant())) return TimeError.EndInTheFuture.left()
         repository.save(
             TimeEntry(
-                id = 0,
+                id = id,
+                categoryId = categoryId,
                 projectId = projectId,
                 note = note.trim(),
-                start = end.minus(duration),
+                start = start,
                 end = end,
             )
         )
-        return Unit.right()
-    }
-}
-
-class SaveProjectUseCase(
-    private val repository: ProjectRepository,
-) {
-    suspend operator fun invoke(name: String, color: Int): Either<TimeError, Unit> {
-        if (name.isBlank()) return TimeError.BlankName.left()
-        repository.save(Project(id = 0, name = name.trim(), color = color))
         return Unit.right()
     }
 }

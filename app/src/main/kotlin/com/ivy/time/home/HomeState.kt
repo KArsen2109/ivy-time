@@ -2,22 +2,24 @@ package com.ivy.time.home
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import com.ivy.time.domain.usecase.PeriodType
+import com.ivy.time.ui.PickerItem
 import kotlinx.collections.immutable.ImmutableList
 
 @Immutable
 data class HomeState(
-    val todayTotal: String,
+    val periodLabel: String,
+    val periodType: PeriodType,
+    val periodTotal: String,
     val running: RunningUi?,
-    val projects: ImmutableList<ProjectUi>,
+    val quickCategories: ImmutableList<PickerItem>,
     val days: ImmutableList<DayUi>,
-    val error: HomeError?,
+    val search: String,
+    val error: String?,
 )
 
 @Immutable
-data class ProjectUi(val id: Long, val name: String, val color: Color)
-
-@Immutable
-data class RunningUi(val elapsed: String, val title: String, val color: Color?)
+data class RunningUi(val elapsed: String, val title: String, val subtitle: String)
 
 @Immutable
 data class DayUi(val title: String, val total: String, val entries: ImmutableList<EntryUi>)
@@ -26,18 +28,20 @@ data class DayUi(val title: String, val total: String, val entries: ImmutableLis
 data class EntryUi(
     val id: Long,
     val title: String,
+    val subtitle: String,
     val range: String,
     val duration: String,
-    val color: Color?,
+    val color: Color,
+    val icon: String?,
     val running: Boolean,
 )
 
-enum class HomeError { TimerAlreadyRunning, InvalidDuration }
-
 sealed interface HomeEvent {
-    data class Start(val projectId: Long?, val note: String) : HomeEvent
+    data class QuickStart(val categoryId: Long) : HomeEvent
     data object Stop : HomeEvent
-    data class Log(val projectId: Long?, val note: String, val minutes: Long) : HomeEvent
+    data class Search(val query: String) : HomeEvent
+    data class SelectPeriod(val type: PeriodType) : HomeEvent
+    data class ShiftPeriod(val steps: Long) : HomeEvent
     data class Delete(val entryId: Long) : HomeEvent
     data object DismissError : HomeEvent
 }

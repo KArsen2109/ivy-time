@@ -14,7 +14,8 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.arrow.core)
+    api(libs.arrow.core)
+    api(libs.javax.inject)
     implementation(libs.kotlin.coroutines.core)
 
     testImplementation(kotlin("test"))

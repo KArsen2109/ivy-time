@@ -1,16 +1,48 @@
 package com.ivy.time.domain.usecase
 
+import com.ivy.time.domain.model.Goal
+import com.ivy.time.domain.model.GoalPeriod
+import com.ivy.time.domain.model.GoalType
 import com.ivy.time.domain.model.TimeEntry
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 
-/** Total tracked time of [projectId] (null = no project). */
-data class ProjectTotal(val projectId: Long?, val total: Duration)
+/** The range a screen reports on, the way Ivy Wallet's period selector works. */
+enum class PeriodType { Day, Week, Month, Year }
+
+data class DateRange(val from: LocalDate, val toExclusive: LocalDate) {
+    fun startInstant(zone: ZoneId): Instant = from.atStartOfDay(zone).toInstant()
+    fun endInstant(zone: ZoneId): Instant = toExclusive.atStartOfDay(zone).toInstant()
+}
+
+fun periodRange(
+    type: PeriodType,
+    anchor: LocalDate,
+    weekStart: DayOfWeek = DayOfWeek.MONDAY,
+): DateRange = when (type) {
+    PeriodType.Day -> DateRange(anchor, anchor.plusDays(1))
+    PeriodType.Week -> anchor.with(TemporalAdjusters.previousOrSame(weekStart))
+        .let { DateRange(it, it.plusWeeks(1)) }
+    PeriodType.Month -> anchor.withDayOfMonth(1).let { DateRange(it, it.plusMonths(1)) }
+    PeriodType.Year -> anchor.withDayOfYear(1).let { DateRange(it, it.plusYears(1)) }
+}
+
+fun DateRange.shift(type: PeriodType, steps: Long): DateRange = when (type) {
+    PeriodType.Day -> DateRange(from.plusDays(steps), toExclusive.plusDays(steps))
+    PeriodType.Week -> DateRange(from.plusWeeks(steps), toExclusive.plusWeeks(steps))
+    PeriodType.Month -> DateRange(from.plusMonths(steps), toExclusive.plusMonths(steps))
+    PeriodType.Year -> DateRange(from.plusYears(steps), toExclusive.plusYears(steps))
+}
+
+/** Total tracked time of [categoryId] (null = no category). */
+data class CategoryTotal(val categoryId: Long?, val total: Duration)
 
 /**
- * Time spent in `[from, to)` per project, biggest first.
+ * Time spent in `[from, to)` per category, biggest first.
  * Entries are clipped to the range, running ones count until [now].
  */
 fun summarize(
@@ -18,19 +50,89 @@ fun summarize(
     from: Instant,
     to: Instant,
     now: Instant,
-): List<ProjectTotal> = entries
-    .mapNotNull { entry ->
-        val start = maxOf(entry.start, from)
-        val end = minOf(entry.end ?: now, to)
-        if (end.isAfter(start)) entry.projectId to Duration.between(start, end) else null
-    }
-    .groupBy({ it.first }, { it.second })
-    .map { (projectId, durations) ->
-        ProjectTotal(projectId, durations.fold(Duration.ZERO, Duration::plus))
+): List<CategoryTotal> = clip(entries, from, to, now)
+    .groupBy({ it.first.categoryId }, { it.second })
+    .map { (categoryId, durations) ->
+        CategoryTotal(categoryId, durations.fold(Duration.ZERO, Duration::plus))
     }
     .sortedByDescending { it.total }
 
-fun LocalDate.startInstant(zone: ZoneId): Instant = atStartOfDay(zone).toInstant()
+/** The same split by project instead of category. */
+fun summarizeByProject(
+    entries: List<TimeEntry>,
+    from: Instant,
+    to: Instant,
+    now: Instant,
+): List<Pair<Long?, Duration>> = clip(entries, from, to, now)
+    .groupBy({ it.first.projectId }, { it.second })
+    .map { (projectId, durations) -> projectId to durations.fold(Duration.ZERO, Duration::plus) }
+    .sortedByDescending { it.second }
+
+fun totalIn(entries: List<TimeEntry>, from: Instant, to: Instant, now: Instant): Duration =
+    clip(entries, from, to, now).fold(Duration.ZERO) { acc, it -> acc + it.second }
+
+/** Time per day of the range, for the bar chart. Days with nothing tracked are kept as zero. */
+fun dailyTotals(
+    entries: List<TimeEntry>,
+    range: DateRange,
+    zone: ZoneId,
+    now: Instant,
+): List<Pair<LocalDate, Duration>> {
+    val days = generateSequence(range.from) { it.plusDays(1) }
+        .takeWhile { it.isBefore(range.toExclusive) }
+        .toList()
+    return days.map { day ->
+        val from = day.atStartOfDay(zone).toInstant()
+        val to = day.plusDays(1).atStartOfDay(zone).toInstant()
+        day to totalIn(entries, from, to, now)
+    }
+}
+
+private fun clip(
+    entries: List<TimeEntry>,
+    from: Instant,
+    to: Instant,
+    now: Instant,
+): List<Pair<TimeEntry, Duration>> = entries.mapNotNull { entry ->
+    val start = maxOf(entry.start, from)
+    val end = minOf(entry.end ?: now, to)
+    if (end.isAfter(start)) entry to Duration.between(start, end) else null
+}
+
+data class GoalProgress(
+    val goal: Goal,
+    val spent: Duration,
+    /** 0f..1f of the target; can exceed 1 before clamping in the UI. */
+    val fraction: Float,
+    val met: Boolean,
+)
+
+fun goalProgress(
+    goal: Goal,
+    entries: List<TimeEntry>,
+    today: LocalDate,
+    zone: ZoneId,
+    now: Instant,
+    weekStart: DayOfWeek = DayOfWeek.MONDAY,
+): GoalProgress {
+    val range = periodRange(
+        type = if (goal.period == GoalPeriod.Week) PeriodType.Week else PeriodType.Month,
+        anchor = today,
+        weekStart = weekStart,
+    )
+    val relevant = entries.filter { goal.categoryId == null || it.categoryId == goal.categoryId }
+    val spent = totalIn(relevant, range.startInstant(zone), range.endInstant(zone), now)
+    val fraction = spent.toMillis().toFloat() / goal.target.toMillis().coerceAtLeast(1)
+    return GoalProgress(
+        goal = goal,
+        spent = spent,
+        fraction = fraction,
+        met = when (goal.type) {
+            GoalType.AtLeast -> spent >= goal.target
+            GoalType.AtMost -> spent <= goal.target
+        },
+    )
+}
 
 fun Duration.formatHms(): String {
     val s = seconds.coerceAtLeast(0)

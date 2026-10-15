@@ -15,14 +15,32 @@ interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE endMillis IS NULL LIMIT 1")
     suspend fun findRunning(): TimeEntryEntity?
 
+    @Query("SELECT * FROM time_entries WHERE id = :id")
+    suspend fun findById(id: Long): TimeEntryEntity?
+
     @Upsert
     suspend fun save(entry: TimeEntryEntity)
 
     @Query("DELETE FROM time_entries WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("UPDATE time_entries SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachCategory(categoryId: Long)
+
     @Query("UPDATE time_entries SET projectId = NULL WHERE projectId = :projectId")
     suspend fun detachProject(projectId: Long)
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY orderNum, name COLLATE NOCASE")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Upsert
+    suspend fun save(category: CategoryEntity)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Dao
@@ -35,14 +53,62 @@ interface ProjectDao {
 
     @Query("DELETE FROM projects WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Query("UPDATE projects SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachCategory(categoryId: Long)
+}
+
+@Dao
+interface PlannedDao {
+    @Query("SELECT * FROM planned_entries ORDER BY epochDay, secondOfDay")
+    fun observeAll(): Flow<List<PlannedEntryEntity>>
+
+    @Query("SELECT * FROM planned_entries WHERE id = :id")
+    suspend fun findById(id: Long): PlannedEntryEntity?
+
+    @Upsert
+    suspend fun save(planned: PlannedEntryEntity)
+
+    @Query("DELETE FROM planned_entries WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("UPDATE planned_entries SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachCategory(categoryId: Long)
+
+    @Query("UPDATE planned_entries SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun detachProject(projectId: Long)
+}
+
+@Dao
+interface GoalDao {
+    @Query("SELECT * FROM goals ORDER BY name COLLATE NOCASE")
+    fun observeAll(): Flow<List<GoalEntity>>
+
+    @Upsert
+    suspend fun save(goal: GoalEntity)
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM goals WHERE categoryId = :categoryId")
+    suspend fun deleteByCategory(categoryId: Long)
 }
 
 @Database(
-    entities = [ProjectEntity::class, TimeEntryEntity::class],
-    version = 1,
+    entities = [
+        CategoryEntity::class,
+        ProjectEntity::class,
+        TimeEntryEntity::class,
+        PlannedEntryEntity::class,
+        GoalEntity::class,
+    ],
+    version = 2,
     exportSchema = false,
 )
 abstract class IvyTimeDatabase : RoomDatabase() {
     abstract fun timeEntryDao(): TimeEntryDao
+    abstract fun categoryDao(): CategoryDao
     abstract fun projectDao(): ProjectDao
+    abstract fun plannedDao(): PlannedDao
+    abstract fun goalDao(): GoalDao
 }

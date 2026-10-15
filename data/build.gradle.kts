@@ -21,12 +21,14 @@ android {
 }
 
 dependencies {
-    implementation(projects.domain)
+    api(projects.domain)
     implementation(libs.kotlin.coroutines.android)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    implementation(libs.datastore)
 
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)

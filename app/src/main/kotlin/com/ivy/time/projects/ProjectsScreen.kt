@@ -1,8 +1,5 @@
 package com.ivy.time.projects
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,12 +8,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
@@ -25,17 +19,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,7 +37,12 @@ import com.ivy.design.system.ColorDot
 import com.ivy.design.system.GradientCircleButton
 import com.ivy.design.system.IvyCard
 import com.ivy.design.system.IvyGradients
-import com.ivy.time.ui.ProjectColors
+import com.ivy.time.ui.ColorPickerRow
+import com.ivy.time.ui.EmptyHint
+import com.ivy.time.ui.IvyPalette
+import com.ivy.time.ui.PickerItem
+import com.ivy.time.ui.PickerRow
+import com.ivy.time.ui.ScreenTitle
 
 @Composable
 fun ProjectsScreen(modifier: Modifier = Modifier) {
@@ -53,40 +51,48 @@ fun ProjectsScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ProjectsUi(state: ProjectsState, onEvent: (ProjectsEvent) -> Unit, modifier: Modifier = Modifier) {
-    var dialogVisible by rememberSaveable { mutableStateOf(false) }
+fun ProjectsUi(
+    state: ProjectsState,
+    onEvent: (ProjectsEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var edited by remember { mutableStateOf<ProjectItem?>(null) }
+    var dialogVisible by remember { mutableStateOf(false) }
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
         ) {
-            item {
-                Text(
-                    "Projects",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                )
-            }
+            item { ScreenTitle("Projects") }
             if (state.projects.isEmpty()) {
                 item {
-                    Text(
-                        "No projects yet. Tap + to create one.",
-                        color = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    EmptyHint(
+                        "A project is a longer effort inside a category, like Work → Ivy Time. " +
+                            "Projects are optional."
                     )
                 }
             }
             items(state.projects, key = { it.id }) { project ->
-                IvyCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                IvyCard(
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    onClick = {
+                        edited = project
+                        dialogVisible = true
+                    },
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ColorDot(project.color, size = 20.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(project.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "${project.total} tracked",
+                                if (project.archived) "${project.name} (archived)" else project.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                listOfNotNull(project.categoryName, "${project.total} tracked")
+                                    .joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
@@ -101,7 +107,10 @@ fun ProjectsUi(state: ProjectsState, onEvent: (ProjectsEvent) -> Unit, modifier:
 
         GradientCircleButton(
             colors = IvyGradients.Ivy,
-            onClick = { dialogVisible = true },
+            onClick = {
+                edited = null
+                dialogVisible = true
+            },
             modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
         ) {
             Icon(Icons.Rounded.Add, contentDescription = "New project", tint = Color.White)
@@ -109,10 +118,12 @@ fun ProjectsUi(state: ProjectsState, onEvent: (ProjectsEvent) -> Unit, modifier:
     }
 
     if (dialogVisible) {
-        NewProjectDialog(
+        ProjectDialog(
+            initial = edited,
+            categories = state.categories,
             onDismiss = { dialogVisible = false },
-            onSave = { name, color ->
-                onEvent(ProjectsEvent.Add(name, color))
+            onSave = { id, name, categoryId, color, archived ->
+                onEvent(ProjectsEvent.Save(id, name, categoryId, color, archived))
                 dialogVisible = false
             },
         )
@@ -120,13 +131,20 @@ fun ProjectsUi(state: ProjectsState, onEvent: (ProjectsEvent) -> Unit, modifier:
 }
 
 @Composable
-private fun NewProjectDialog(onDismiss: () -> Unit, onSave: (String, Color) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var colorIndex by rememberSaveable { mutableIntStateOf(0) }
+private fun ProjectDialog(
+    initial: ProjectItem?,
+    categories: List<PickerItem>,
+    onDismiss: () -> Unit,
+    onSave: (Long, String, Long?, Color, Boolean) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var color by remember { mutableStateOf(initial?.color ?: IvyPalette.first()) }
+    var categoryId by remember { mutableStateOf(initial?.categoryId) }
+    var archived by remember { mutableStateOf(initial?.archived ?: false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New project") },
+        title = { Text(if (initial == null) "New project" else "Edit project") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
@@ -135,30 +153,25 @@ private fun NewProjectDialog(onDismiss: () -> Unit, onSave: (String, Color) -> U
                     label = { Text("Name") },
                     singleLine = true,
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(ProjectColors.size) { index ->
-                        Box(
-                            Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(ProjectColors[index])
-                                .let {
-                                    if (index == colorIndex) {
-                                        it.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                    } else {
-                                        it
-                                    }
-                                }
-                                .clickable { colorIndex = index }
-                        )
-                    }
+                if (categories.isNotEmpty()) {
+                    PickerRow(
+                        items = categories,
+                        selectedId = categoryId,
+                        onSelect = { categoryId = it },
+                    )
+                }
+                ColorPickerRow(IvyPalette, color, onSelect = { color = it })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Archived", Modifier.weight(1f))
+                    Switch(checked = archived, onCheckedChange = { archived = it })
                 }
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name, ProjectColors[colorIndex]) }) {
-                Text("Save")
-            }
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = { onSave(initial?.id ?: 0L, name, categoryId, color, archived) },
+            ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
