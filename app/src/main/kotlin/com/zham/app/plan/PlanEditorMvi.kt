@@ -11,7 +11,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.zham.data.SettingsStore
 import com.zham.domain.model.CategoryRepository
+import com.zham.domain.model.PlanBlock
 import com.zham.domain.model.PlanRepository
+import com.zham.domain.model.planConflicts
 import com.zham.domain.model.ProjectRepository
 import com.zham.domain.model.RepeatRule
 import com.zham.domain.model.TimeRepository
@@ -66,6 +68,8 @@ data class PlanEditorState(
     val movedToNextDay: Boolean,
     /** Minutes before the start to remind; null for no reminder. */
     val reminderMinutes: Int?,
+    /** Other blocks at the same time as this one, one line each; empty when nothing overlaps. */
+    val conflicts: ImmutableList<String>,
 )
 
 sealed interface PlanEditorEvent {
@@ -160,6 +164,24 @@ class PlanEditorViewModel @Inject constructor(
         val formatters = TimeFormatters(clock.zone, use24Hours)
         val selected = categoryId.value
         val shownDate = effectiveDate()
+        val conflicts = remember(plans, categories, shownDate, start.value, end.value, repeat.value, weekdays.value, use24Hours) {
+            val candidate = PlanBlock(
+                planId, null, null, "", start.value, end.value, shownDate,
+                when (repeat.value) {
+                    RepeatChoice.Once -> RepeatRule.Once
+                    RepeatChoice.Daily -> RepeatRule.Daily
+                    RepeatChoice.Monthly -> RepeatRule.Monthly
+                    RepeatChoice.Weekly -> RepeatRule.Weekly(weekdays.value)
+                },
+            )
+            val names = categories.associate { it.id to it.name }
+            planConflicts(candidate, plans, clock.zone).map { conflict ->
+                val other = conflict.other
+                val title = other.note.ifBlank { names[other.categoryId] ?: "Planned block" }
+                "$title, ${formatters.time(other.start)} – ${formatters.time(other.end)}, " +
+                    formatters.shortDate(conflict.date)
+            }.toImmutableList()
+        }
 
         return PlanEditorState(
             editing = planId != 0L,
@@ -192,6 +214,7 @@ class PlanEditorViewModel @Inject constructor(
             marks = remember(entries, plans, clock.zone) { calendarMarks(entries, plans, clock.zone) },
             error = error.value,
             reminderMinutes = reminder.value,
+            conflicts = conflicts,
             movedToNextDay = effectiveDate() != notBeforeToday(date.value),
         )
     }

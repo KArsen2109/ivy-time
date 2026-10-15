@@ -219,11 +219,17 @@ class EntryViewModel @Inject constructor(
                 end.value = event.time
             }
             is EntryEvent.SetDuration -> {
+                // The end stays where it is and the start moves back from it. The start's date is
+                // worked out from that moment, so a length that crosses midnight lands on the day
+                // before, and choosing a shorter length afterwards brings the date back.
+                val zone = clock.zone
+                val startInstant = date.value.atTime(start.value).atZone(zone).toInstant()
+                val endInstant = startInstant.plus(duration())
+                val newStart = endInstant.minus(Duration.ofMinutes(event.minutes)).atZone(zone)
                 fixedDuration.value = null
-                // Counting back past midnight puts the start on the day before.
-                val endMinute = end.value.hour * 60 + end.value.minute
-                if (event.minutes > endMinute) date.value = date.value.minusDays(1)
-                start.value = end.value.minusMinutes(event.minutes)
+                end.value = endInstant.atZone(zone).toLocalTime().withSecond(0).withNano(0)
+                date.value = newStart.toLocalDate()
+                start.value = newStart.toLocalTime().withSecond(0).withNano(0)
             }
             EntryEvent.Save -> save()
             EntryEvent.Delete -> viewModelScope.launch {

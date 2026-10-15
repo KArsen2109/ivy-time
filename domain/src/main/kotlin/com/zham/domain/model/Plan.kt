@@ -79,6 +79,39 @@ fun PlanBlock.occurrenceOn(
  * What is on [date]: the blocks that start that day, plus the tail of yesterday's blocks that
  * ran past midnight. A spilled occurrence keeps yesterday's [PlanOccurrence.date].
  */
+/** A block that runs at the same time as another, first seen on [date]. */
+data class PlanConflict(val other: PlanBlock, val date: LocalDate)
+
+/**
+ * The other blocks that [candidate] would overlap in its next [days] days, each listed once with
+ * the first day they meet. Overlap is allowed (doing two things at once), so this only reports.
+ */
+fun planConflicts(
+    candidate: PlanBlock,
+    others: List<PlanBlock>,
+    zone: ZoneId,
+    days: Int = 60,
+): List<PlanConflict> {
+    val found = linkedMapOf<Long, PlanConflict>()
+    val rivals = others.filter { it.id != candidate.id || candidate.id == 0L }
+    for (offset in 0 until days) {
+        val day = candidate.startDate.plusDays(offset.toLong())
+        val mine = candidate.occurrenceOn(day, zone, emptySet()) ?: continue
+        for (other in rivals) {
+            if (other.id in found) continue
+            // A block that ran past midnight on the day before can still be going on this day.
+            for (otherDay in listOf(day.minusDays(1), day, day.plusDays(1))) {
+                val theirs = other.occurrenceOn(otherDay, zone, emptySet()) ?: continue
+                if (theirs.startsAt < mine.endsAt && mine.startsAt < theirs.endsAt) {
+                    found[other.id] = PlanConflict(other, otherDay)
+                    break
+                }
+            }
+        }
+    }
+    return found.values.toList()
+}
+
 fun occurrencesOn(
     plans: List<PlanBlock>,
     date: LocalDate,

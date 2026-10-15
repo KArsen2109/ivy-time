@@ -38,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -103,6 +104,36 @@ private fun WeekdayToggle(day: DayOfWeek, selected: Boolean, onToggle: () -> Uni
     }
 }
 
+/** Says which blocks this one runs alongside. It warns; it does not stop the save. */
+@Composable
+private fun ConflictNote(conflicts: List<String>) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.Gutter, vertical = 8.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+            .padding(12.dp),
+    ) {
+        Text(
+            text = if (conflicts.size == 1) "Overlaps another block" else "Overlaps ${conflicts.size} other blocks",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        conflicts.take(3).forEach {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+        }
+        if (conflicts.size > 3) {
+            Text("and ${conflicts.size - 3} more", style = MaterialTheme.typography.bodySmall, color = ZhamTheme.extra.slate)
+        }
+        Text(
+            "You can keep it: both will run at the same time.",
+            style = MaterialTheme.typography.bodySmall,
+            color = ZhamTheme.extra.slate,
+        )
+    }
+}
+
 private val LENGTHS = listOf(15L, 30L, 45L, 60L, 90L, 120L, 180L, 240L)
 
 @Composable
@@ -139,6 +170,7 @@ fun PlanEditorUi(
     val exactSettings = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { exactAllowed = canScheduleExactAlarms(context) }
+    var confirmOverlap by remember { mutableStateOf(false) }
     var datePicker by remember { mutableStateOf(false) }
     var startPicker by remember { mutableStateOf(false) }
     var endPicker by remember { mutableStateOf(false) }
@@ -363,6 +395,10 @@ fun PlanEditorUi(
             ) { Text("Allow exact times") }
         }
 
+        if (state.conflicts.isNotEmpty()) {
+            ConflictNote(state.conflicts)
+        }
+
         state.error?.let { message ->
             Text(
                 text = message,
@@ -375,10 +411,33 @@ fun PlanEditorUi(
         Spacer(Modifier.height(20.dp))
         PrimaryButton(
             text = "Save block",
-            onClick = { onEvent(PlanEditorEvent.Save) },
+            onClick = {
+                // Doing two things at once is allowed, but never by accident.
+                if (state.conflicts.isNotEmpty()) confirmOverlap = true else onEvent(PlanEditorEvent.Save)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.Gutter),
+        )
+    }
+
+    if (confirmOverlap) {
+        AlertDialog(
+            onDismissRequest = { confirmOverlap = false },
+            title = { Text("This overlaps another block") },
+            text = {
+                Text(
+                    state.conflicts.take(3).joinToString("\n") + "\n\nBoth blocks will run at the same time. " +
+                        "Save it anyway?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmOverlap = false
+                    onEvent(PlanEditorEvent.Save)
+                }) { Text("Save anyway") }
+            },
+            dismissButton = { TextButton(onClick = { confirmOverlap = false }) { Text("Change time") } },
         )
     }
 
