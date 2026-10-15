@@ -163,7 +163,7 @@ class ReportsViewModel @Inject constructor(
             barPeak = months.maxOfOrNull { it.second } ?: Duration.ZERO
         } else {
             bars = days.mapIndexed { index, (date, duration) ->
-                barLabel(date, index, dayCount, formatters) to duration.toMinutes().toFloat()
+                barLabel(date, index, dayCount, weekStart, formatters) to duration.toMinutes().toFloat()
             }
             barPeak = days.maxOfOrNull { it.second } ?: Duration.ZERO
         }
@@ -284,11 +284,18 @@ class ReportsViewModel @Inject constructor(
         return periodRange(type, today, weekStart).shift(type, offset.longValue)
     }
 
-    private fun barLabel(date: LocalDate, index: Int, dayCount: Int, formatters: TimeFormatters): String =
+    private fun barLabel(
+        date: LocalDate,
+        index: Int,
+        dayCount: Int,
+        weekStart: DayOfWeek,
+        formatters: TimeFormatters,
+    ): String =
         when {
             dayCount <= 10 -> formatters.weekdayInitial(date)
-            // Dense ranges label the date of every fifth bar, or the labels run into each other.
-            index % 5 == 0 -> date.dayOfMonth.toString()
+            // Dense ranges label the date on the first day of each week (and the first bar), or the
+            // labels run into each other. A week start right after the first bar would collide with it.
+            index == 0 || (date.dayOfWeek == weekStart && index >= 3) -> date.dayOfMonth.toString()
             else -> ""
         }
 
