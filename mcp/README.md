@@ -4,10 +4,10 @@ Lets Claude (or any MCP client) read your Zham records and draft new ones.
 
 The records live on the phone, so the server works on the CSV the app exports:
 
-1. In the app: More -> Back up. Save `zham-backup.csv` on your computer.
+1. In the app: More -> Export records to CSV. Save the file as `zham-backup.csv` on your computer.
 2. Run the server (needs Python 3.10+ and `pip install mcp`).
 3. To add a record, ask the assistant; it writes to `zham-inbox.csv`, a separate file.
-   Import that file in the app (More -> Import). The backup is never modified, so
+   Import that file in the app (More -> Restore or import). The backup is never modified, so
    nothing is imported twice.
 
 Tools: `list_categories`, `list_entries`, `summary`, `add_entry`.

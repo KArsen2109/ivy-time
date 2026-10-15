@@ -1,8 +1,8 @@
 """Zham MCP server: lets an AI assistant read your time records and draft new ones.
 
-Reads the backup CSV the app exports (More -> Back up). New records are never
+Reads the backup CSV the app exports (More -> Export records to CSV). New records are never
 written into that file; they go to a separate inbox CSV that you import in the
-app (More -> Import), so nothing is imported twice.
+app (More -> Restore or import), so nothing is imported twice.
 
 Environment:
   ZHAM_BACKUP  path to zham-backup.csv        (default ./zham-backup.csv)
@@ -38,7 +38,7 @@ def _parse_utc(text: str) -> datetime | None:
 
 def _load() -> list[dict]:
     if not BACKUP.exists():
-        raise FileNotFoundError(f"{BACKUP} not found. Export it in the app (More -> Back up) and set ZHAM_BACKUP.")
+        raise FileNotFoundError(f"{BACKUP} not found. Export it in the app (More -> Export records to CSV) and set ZHAM_BACKUP.")
     rows = []
     with BACKUP.open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
@@ -133,7 +133,7 @@ def add_entry(start: str, end: str, category: str, project: str = "", note: str 
             writer.writerow(HEADER)
         stamp = lambda d: d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         writer.writerow([stamp(begin), stamp(finish), category, project, note, description])
-    return f"Saved {category} {start} - {end} to {INBOX}. Import that file in the app (More -> Import)."
+    return f"Saved {category} {start} - {end} to {INBOX}. Import that file in the app (More -> Restore or import)."
 
 
 if __name__ == "__main__":
