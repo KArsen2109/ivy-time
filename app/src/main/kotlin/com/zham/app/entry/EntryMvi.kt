@@ -186,7 +186,7 @@ class EntryViewModel @Inject constructor(
             today = LocalDate.now(clock),
             now = LocalTime.now(clock).withSecond(0).withNano(0),
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
-            marks = calendarMarks(entries, plans, clock.zone),
+            marks = remember(entries, plans, clock.zone) { calendarMarks(entries, plans, clock.zone) },
             error = problem ?: error.value,
             canSave = problem == null,
             overlapsOther = overlapsOther(entries),

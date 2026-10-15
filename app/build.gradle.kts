@@ -14,8 +14,8 @@ android {
         applicationId = "com.zham.app"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
-        versionCode = 10
-        versionName = "0.9.0"
+        versionCode = 11
+        versionName = "1.0.0-rc1"
     }
 
     // One fixed debug key, kept in the repo, so every build is signed alike and a new APK can be
@@ -29,11 +29,34 @@ android {
         }
     }
 
+    // The key that signs what is uploaded to Google Play. It never lives in the repo: the build
+    // finds it through these environment variables (the CI fills them from its secrets), and
+    // without them the release build is simply left unsigned.
+    val uploadKeystore = System.getenv("ZHAM_UPLOAD_KEYSTORE")?.takeIf { it.isNotBlank() }
+    if (uploadKeystore != null) {
+        signingConfigs {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("ZHAM_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("ZHAM_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("ZHAM_UPLOAD_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (uploadKeystore != null) signingConfig = signingConfigs.getByName("upload")
+        }
+        // The release build (shrunk and obfuscated) signed with the debug key, so it can be
+        // installed over a debug build and tried on a phone before anything is uploaded.
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
         }
     }
 
@@ -62,6 +85,8 @@ dependencies {
     implementation(libs.kotlin.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.arrow.core)
+
+    debugImplementation(libs.compose.tooling)
 
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)

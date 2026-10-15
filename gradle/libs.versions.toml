@@ -50,7 +50,6 @@ compose = [
     "compose-material-icons-extended",
     "compose-runtime",
     "compose-ui",
-    "compose-tooling",
 ]
 
 [plugins]

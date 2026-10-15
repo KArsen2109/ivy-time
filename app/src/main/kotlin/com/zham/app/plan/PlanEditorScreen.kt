@@ -2,6 +2,11 @@ package com.zham.app.plan
 
 import com.zham.app.ui.rememberDeleteConfirm
 import android.Manifest
+import android.app.AlarmManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +52,7 @@ import com.zham.design.system.SectionLabel
 import com.zham.design.system.Segmented
 import com.zham.design.system.Spacing
 import com.zham.design.system.TimeKeypadDialog
+import com.zham.design.system.ZhamTheme
 import com.zham.app.ui.CalendarSheet
 import com.zham.app.ui.PickerRow
 import java.time.DayOfWeek
@@ -59,6 +66,10 @@ private fun reminderLabel(minutes: Int): String = when {
     minutes >= 60 -> "${minutes / 60} h before"
     else -> "$minutes min before"
 }
+
+private fun canScheduleExactAlarms(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
 private val LENGTHS = listOf(15L, 30L, 45L, 60L, 90L, 120L, 180L, 240L)
 
@@ -86,6 +97,10 @@ fun PlanEditorUi(
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> notificationsBlocked = !granted }
+    var exactAllowed by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    val exactSettings = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { exactAllowed = canScheduleExactAlarms(context) }
     var datePicker by remember { mutableStateOf(false) }
     var startPicker by remember { mutableStateOf(false) }
     var endPicker by remember { mutableStateOf(false) }
@@ -289,6 +304,23 @@ fun PlanEditorUi(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
             )
+        }
+
+        if (state.reminderMinutes != null && !exactAllowed) {
+            Text(
+                text = "Without exact timing Android may deliver reminders a few minutes late.",
+                style = MaterialTheme.typography.bodySmall,
+                color = ZhamTheme.extra.slate,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+            )
+            TextButton(
+                onClick = {
+                    exactSettings.launch(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName))
+                    )
+                },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            ) { Text("Allow exact times") }
         }
 
         state.error?.let { message ->

@@ -145,7 +145,7 @@ class DayViewModel @Inject constructor(
             },
             today = today,
             weekStart = settings?.weekStart ?: java.time.DayOfWeek.MONDAY,
-            marks = calendarMarks(entries, plans, zone),
+            marks = remember(entries, plans, zone) { calendarMarks(entries, plans, zone) },
             error = error.value,
         )
     }

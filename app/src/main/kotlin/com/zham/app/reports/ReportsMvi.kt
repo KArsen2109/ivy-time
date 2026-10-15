@@ -247,7 +247,7 @@ class ReportsViewModel @Inject constructor(
             canShift = period.value != ReportPeriod.Custom,
             today = today,
             weekStart = weekStart,
-            marks = calendarMarks(allEntries, plans, zone),
+            marks = remember(allEntries, plans, zone) { calendarMarks(allEntries, plans, zone) },
         )
     }
 

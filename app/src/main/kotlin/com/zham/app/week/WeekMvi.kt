@@ -228,7 +228,7 @@ class WeekViewModel @Inject constructor(
             }.toImmutableList(),
             today = today,
             weekStart = weekStart,
-            marks = calendarMarks(entries, plans, zone),
+            marks = remember(entries, plans, zone) { calendarMarks(entries, plans, zone) },
         )
     }
 

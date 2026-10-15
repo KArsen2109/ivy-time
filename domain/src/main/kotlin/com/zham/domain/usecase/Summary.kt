@@ -80,11 +80,26 @@ fun dailyTotals(
     val days = generateSequence(range.from) { it.plusDays(1) }
         .takeWhile { it.isBefore(range.toExclusive) }
         .toList()
-    return days.map { day ->
-        val from = day.atStartOfDay(zone).toInstant()
-        val to = day.plusDays(1).atStartOfDay(zone).toInstant()
-        day to totalIn(entries, from, to, now)
+    if (days.isEmpty()) return emptyList()
+
+    // Each record is cut into the days it touches once, instead of every day scanning every record.
+    val starts = days.map { it.atStartOfDay(zone).toInstant() } +
+        range.toExclusive.atStartOfDay(zone).toInstant()
+    val buckets = List(days.size) { mutableListOf<Pair<Instant, Instant>>() }
+    entries.forEach { entry ->
+        val from = maxOf(entry.start, starts.first())
+        val to = minOf(entry.end ?: now, starts.last())
+        if (!to.isAfter(from)) return@forEach
+        val found = starts.binarySearch(from)
+        var day = if (found >= 0) found else -found - 2
+        while (day < days.size && starts[day] < to) {
+            val a = maxOf(from, starts[day])
+            val b = minOf(to, starts[day + 1])
+            if (b.isAfter(a)) buckets[day] += a to b
+            day++
+        }
     }
+    return days.mapIndexed { index, day -> day to unionLength(buckets[index]) }
 }
 
 private fun clip(
