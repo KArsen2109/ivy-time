@@ -20,3 +20,9 @@ exceptions, Hilt, Room, Material3) and the same look (Ivy palette, gradient card
 ## Run
 Open in Android Studio, or `./gradlew :app:installDebug`.
 Domain tests: `./gradlew :domain:test`.
+
+## Get an installable APK
+- **GitHub Actions:** push the repo to GitHub, open *Actions → Build APK → Run workflow*, then download
+  the `ivy-time-debug-apk` artifact (`app-debug.apk`, signed with the debug key).
+- **Locally:** `./gradlew :app:assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+- **Install:** copy the APK to the phone and open it (allow "install unknown apps"), or `adb install -r app-debug.apk`.
