@@ -3,7 +3,6 @@ package com.ivy.time.day
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -52,13 +51,13 @@ class DayViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val projectRepository: ProjectRepository,
     private val settingsStore: SettingsStore,
+    private val selectedDay: SelectedDay,
     private val startTimer: StartTimerUseCase,
     private val stopTimer: StopTimerUseCase,
     private val completePlan: CompletePlanUseCase,
     private val clock: Clock,
 ) : ComposeViewModel<DayState, DayEvent>() {
 
-    private val dayOffset = mutableLongStateOf(0L)
     private val openPlanId = mutableStateOf<Long?>(null)
     private val error = mutableStateOf<String?>(null)
 
@@ -76,7 +75,7 @@ class DayViewModel @Inject constructor(
 
         val zone = clock.zone
         val today = LocalDate.now(clock)
-        val date = today.plusDays(dayOffset.longValue)
+        val date by remember { selectedDay.date }.collectAsState()
         val formatters = TimeFormatters(zone, settings?.use24Hours ?: true)
 
         val categoriesById = categories.associateBy { it.id }
@@ -142,8 +141,8 @@ class DayViewModel @Inject constructor(
 
     override fun onEvent(event: DayEvent) {
         when (event) {
-            is DayEvent.ShiftDay -> dayOffset.longValue += event.days
-            DayEvent.GoToToday -> dayOffset.longValue = 0
+            is DayEvent.ShiftDay -> selectedDay.shift(event.days)
+            DayEvent.GoToToday -> selectedDay.set(LocalDate.now(clock))
             is DayEvent.QuickStart -> launchStart(event.categoryId, null, "")
             DayEvent.StopTimer -> viewModelScope.launch {
                 stopTimer().fold({ error.value = it.message() }, { error.value = null })
@@ -156,7 +155,7 @@ class DayViewModel @Inject constructor(
                 if (plan != null) launchStart(plan.categoryId, plan.projectId, plan.note)
             }
             is DayEvent.TogglePlanDone -> viewModelScope.launch {
-                val date = LocalDate.now(clock).plusDays(dayOffset.longValue)
+                val date = selectedDay.date.value
                 openPlanId.value = null
                 completePlan(event.planId, date)
                     .fold({ error.value = it.message() }, { error.value = null })

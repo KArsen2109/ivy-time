@@ -25,6 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.ivy.design.system.IvyTheme
 import com.ivy.time.categories.CategoriesScreen
+import com.ivy.time.day.SelectedDay
 import com.ivy.time.day.DayScreen
 import com.ivy.time.entry.EntryScreen
 import com.ivy.time.goals.GoalsScreen
@@ -63,7 +64,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 @Composable
-fun MainScreen() {
+fun MainScreen(selectedDay: SelectedDay) {
     val navController = rememberNavController()
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val tabsVisible = Tab.entries.any { it.route == currentRoute }
@@ -111,7 +112,12 @@ fun MainScreen() {
                 )
             }
             composable(Routes.WEEK) {
-                WeekScreen(onOpenDay = { navController.switchTab(Routes.DAY) })
+                WeekScreen(
+                    onOpenDay = { date ->
+                        selectedDay.set(date)
+                        navController.switchTab(Routes.DAY)
+                    }
+                )
             }
             composable(Routes.REPORTS) { ReportsScreen() }
             composable(Routes.MORE) {

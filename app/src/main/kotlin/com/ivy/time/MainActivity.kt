@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import com.ivy.design.system.IvyTimeTheme
 import com.ivy.time.data.SettingsStore
+import com.ivy.time.day.SelectedDay
 import com.ivy.time.data.ThemeMode
 import com.ivy.time.main.MainScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -19,6 +20,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var settingsStore: SettingsStore
+
+    @Inject
+    lateinit var selectedDay: SelectedDay
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -34,7 +38,7 @@ class MainActivity : ComponentActivity() {
                 },
                 amoled = theme == ThemeMode.AmoledDark,
             ) {
-                MainScreen()
+                MainScreen(selectedDay)
             }
         }
     }

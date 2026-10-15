@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ivy.design.system.ChoiceChip
+import com.ivy.design.system.ColorDot
 import com.ivy.design.system.DayTimeline
 import com.ivy.design.system.IvyShapes
 import com.ivy.design.system.IvyTheme
@@ -241,13 +242,7 @@ private fun Summary(
 @Composable
 private fun RunningBar(running: RunningUi, onStop: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(8.dp)
-                .padding(end = 0.dp)
-        ) {
-            com.ivy.design.system.ColorDot(IvyTheme.extra.signal, size = 8.dp)
-        }
+        ColorDot(IvyTheme.extra.signal, size = 8.dp)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(
