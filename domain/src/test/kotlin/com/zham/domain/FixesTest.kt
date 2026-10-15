@@ -23,6 +23,8 @@ import com.zham.domain.usecase.Csv
 import com.zham.domain.usecase.FullBackup
 import com.zham.domain.usecase.RestoreBackupUseCase
 import com.zham.domain.usecase.UncompletePlanUseCase
+import com.zham.domain.usecase.DateRange
+import com.zham.domain.usecase.dailyTotals
 import com.zham.domain.usecase.dayPlan
 import com.zham.domain.usecase.summarize
 import com.zham.domain.usecase.totalIn
@@ -240,5 +242,21 @@ class FixesTest {
         again.skipped shouldBe 1
         mem.entries.single().description shouldBe "d1\nd2"
         mem.categories.single().name shouldBe "Work"
+    }
+
+    @Test
+    fun `daily totals split a record at midnight and count overlaps once`() {
+        val range = DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 4))
+        val overnight = TimeEntry(1, null, null, "", at(1, 22), at(2, 2))
+        val inside = TimeEntry(2, null, null, "", at(2, 1), at(2, 3))
+        val running = TimeEntry(3, null, null, "", at(3, 23), null)
+        val outside = TimeEntry(4, null, null, "", at(1, 0).minusSeconds(7200), at(1, 0).minusSeconds(3600))
+        val totals = dailyTotals(listOf(overnight, inside, running, outside), range, UTC, at(4, 0)).map { it.second }
+        totals shouldBe listOf(Duration.ofHours(2), Duration.ofHours(3), Duration.ofHours(1))
+    }
+
+    @Test
+    fun `daily totals of an empty range are empty`() {
+        dailyTotals(emptyList(), DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1)), UTC, at(4, 0)) shouldBe emptyList()
     }
 }
