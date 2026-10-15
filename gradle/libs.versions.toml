@@ -7,11 +7,11 @@ compose = "1.6.8"
 compose-material3 = "1.2.1"
 hilt = "2.52"
 room = "2.6.1"
-agp = "8.5.2"
+agp = "8.13.0"
 ksp = "2.0.20-1.0.24"
 
 min-sdk = "28"
-compile-sdk = "34"
+compile-sdk = "36"
 jvm-target = "17"
 
 [libraries]
