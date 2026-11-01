@@ -1,4 +1,10 @@
 <resources>
     <!-- The window behind the first frame, so a light app does not flash dark when it starts. -->
     <style name="Theme.Zham" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- See-through, for the mode wheel that floats over whatever was on screen. -->
+    <style name="Theme.Zham.Transparent" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

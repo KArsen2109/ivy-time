@@ -22,18 +22,22 @@ class ReminderReceiver : BroadcastReceiver() {
     @InstallIn(SingletonComponent::class)
     interface Access {
         fun scheduler(): ReminderScheduler
+        fun stopTimer(): com.zham.domain.usecase.StopTimerUseCase
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        val scheduler = EntryPointAccessors
-            .fromApplication(context.applicationContext, Access::class.java)
-            .scheduler()
+        val access = EntryPointAccessors.fromApplication(context.applicationContext, Access::class.java)
+        val scheduler = access.scheduler()
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             try {
                 // A reminder that cannot be shown must never take the app down with it.
                 runCatching {
-                    if (intent.action == ACTION_TEST) scheduler.showTest() else scheduler.sync()
+                    when (intent.action) {
+                        ACTION_TEST -> scheduler.showTest()
+                        ACTION_STOP_TIMER -> access.stopTimer()()
+                        else -> scheduler.sync()
+                    }
                 }
             } finally {
                 pending.finish()
@@ -44,5 +48,6 @@ class ReminderReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_REMIND = "com.zham.app.REMIND"
         const val ACTION_TEST = "com.zham.app.TEST_REMINDER"
+        const val ACTION_STOP_TIMER = "com.zham.app.STOP_TIMER"
     }
 }

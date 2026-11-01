@@ -44,6 +44,9 @@ class ZhamApplication : Application() {
     @Inject
     lateinit var reminderScheduler: ReminderScheduler
 
+    @Inject
+    lateinit var timerNotifier: com.zham.app.quick.TimerNotifier
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -51,6 +54,7 @@ class ZhamApplication : Application() {
         seedDefaultCategories()
         seedMoney()
         keepRemindersCurrent()
+        timerNotifier.start(scope)
     }
 
     /**

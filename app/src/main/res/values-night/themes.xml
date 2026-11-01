@@ -1,3 +1,9 @@
 <resources>
     <style name="Theme.Zham" parent="android:Theme.Material.NoActionBar" />
+    <!-- See-through, for the mode wheel that floats over whatever was on screen. -->
+    <style name="Theme.Zham.Transparent" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
