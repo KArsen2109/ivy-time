@@ -58,6 +58,11 @@ fun TimerUi(
     onEditRecord: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // The running timer lives in a notification too, which needs the permission on Android 13 and later.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val notificationPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 40.dp),
@@ -168,7 +173,15 @@ fun TimerUi(
             PrimaryButton(
                 text = if (state.running) "Stop" else if (state.selectedCategoryId == null) "Start" else "Start " + state.categoryName,
                 color = state.color,
-                onClick = { onEvent(TimerEvent.Toggle) },
+                onClick = {
+                    if (!state.running && android.os.Build.VERSION.SDK_INT >= 33 &&
+                        context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    onEvent(TimerEvent.Toggle)
+                },
                 icon = if (state.running) Icons.Rounded.Stop else Icons.Rounded.PlayArrow,
                 modifier = Modifier
                     .fillMaxWidth()
