@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.zham.domain.model.CategoryRepository
 import com.zham.domain.model.GoalRepository
+import com.zham.domain.model.NoteRepository
 import com.zham.domain.model.PlanRepository
 import com.zham.domain.model.ProjectRepository
 import com.zham.domain.model.TimeRepository
@@ -24,7 +25,7 @@ object DataModule {
     @Singleton
     fun database(@ApplicationContext context: Context): ZhamDatabase {
         return Room.databaseBuilder(context, ZhamDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
             .build()
     }
 
@@ -49,6 +50,10 @@ object DataModule {
     @Provides
     @Singleton
     fun planRepository(db: ZhamDatabase): PlanRepository = RoomPlanRepository(db.planDao())
+
+    @Provides
+    @Singleton
+    fun noteRepository(db: ZhamDatabase): NoteRepository = RoomNoteRepository(db.noteDao())
 
     @Provides
     @Singleton

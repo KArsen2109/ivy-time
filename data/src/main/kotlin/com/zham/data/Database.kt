@@ -86,8 +86,9 @@ interface GoalDao {
         PlanBlockEntity::class,
         PlanCompletionEntity::class,
         GoalEntity::class,
+        NoteEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -96,6 +97,7 @@ abstract class ZhamDatabase : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
     abstract fun planDao(): PlanDao
     abstract fun goalDao(): GoalDao
+    abstract fun noteDao(): NoteDao
 }
 
 @Dao
@@ -177,5 +179,37 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         db.execSQL("ALTER TABLE plan_blocks ADD COLUMN reminders TEXT NOT NULL DEFAULT ''")
         db.execSQL("ALTER TABLE plan_blocks ADD COLUMN endReminder INTEGER")
         db.execSQL("UPDATE plan_blocks SET reminders = CAST(reminderMinutes AS TEXT) WHERE reminderMinutes IS NOT NULL")
+    }
+}
+
+@Dao
+interface NoteDao {
+    @Query("SELECT * FROM notes ORDER BY pinned DESC, updatedMillis DESC")
+    fun observeAll(): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE id = :id")
+    suspend fun findById(id: Long): NoteEntity?
+
+    @Upsert
+    suspend fun save(note: NoteEntity): Long
+
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("UPDATE notes SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachCategory(categoryId: Long)
+
+    @Query("UPDATE notes SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun detachProject(projectId: Long)
+}
+
+/** 9 to 10 adds notes. */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`title` TEXT NOT NULL, `body` TEXT NOT NULL, `categoryId` INTEGER, `projectId` INTEGER, " +
+                "`createdMillis` INTEGER NOT NULL, `updatedMillis` INTEGER NOT NULL, `pinned` INTEGER NOT NULL)"
+        )
     }
 }

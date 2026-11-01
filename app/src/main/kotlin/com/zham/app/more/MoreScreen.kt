@@ -51,6 +51,7 @@ fun MoreScreen(
     onOpenCategories: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenNotes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: MoreViewModel = hiltViewModel()
@@ -97,6 +98,7 @@ fun MoreScreen(
         onOpenCategories = onOpenCategories,
         onOpenProjects = onOpenProjects,
         onOpenGoals = onOpenGoals,
+        onOpenNotes = onOpenNotes,
         onExportFull = { fullLauncher.launch("zham-backup.json") },
         onExport = { exportLauncher.launch("zham-records.csv") },
         // A backup may be offered with any file type, so none is filtered out.
@@ -112,6 +114,7 @@ fun MoreUi(
     onOpenCategories: () -> Unit,
     onOpenProjects: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenNotes: () -> Unit,
     onExportFull: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -214,6 +217,22 @@ fun MoreUi(
                         onCheckedChange = { onEvent(MoreEvent.SetUse24Hours(it)) },
                     )
                 }
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.Gutter, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CountTile(
+                    count = state.noteCount.toString(),
+                    label = "Notes",
+                    onClick = onOpenNotes,
+                    modifier = Modifier.weight(1f),
+                    preview = {},
+                )
+                Spacer(Modifier.weight(2f))
             }
 
             SectionLabel("Reminders")

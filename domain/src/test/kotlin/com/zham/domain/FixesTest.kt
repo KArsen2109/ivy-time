@@ -50,6 +50,7 @@ internal class Mem {
     val plans = mutableListOf<PlanBlock>()
     val completions = mutableListOf<PlanCompletion>()
     val goals = mutableListOf<Goal>()
+    val notes = mutableListOf<com.zham.domain.model.Note>()
     private var next = 1L
 
     private fun <T> upsert(list: MutableList<T>, item: T, id: (T) -> Long, withId: (T, Long) -> T) {
@@ -73,6 +74,15 @@ internal class Mem {
         override fun observeProjects(): Flow<List<Project>> = flow { emit(projects.toList()) }
         override suspend fun save(project: Project) = upsert(projects, project, { it.id }, { e, i -> e.copy(id = i) })
         override suspend fun delete(id: Long) { projects.removeAll { it.id == id } }
+    }
+    val note = object : com.zham.domain.model.NoteRepository {
+        override fun observeNotes(): Flow<List<com.zham.domain.model.Note>> = flow { emit(notes.toList()) }
+        override suspend fun findById(id: Long) = notes.firstOrNull { it.id == id }
+        override suspend fun save(note: com.zham.domain.model.Note): Long {
+            upsert(notes, note, { it.id }, { e, i -> e.copy(id = i) })
+            return if (note.id != 0L) note.id else notes.last().id
+        }
+        override suspend fun delete(id: Long) { notes.removeAll { it.id == id } }
     }
     val goal = object : GoalRepository {
         override fun observeGoals(): Flow<List<Goal>> = flow { emit(goals.toList()) }
@@ -190,13 +200,14 @@ class FixesTest {
         source.plan.save(PlanBlock(0, workId, null, "Plan", LocalTime.of(9, 0), LocalTime.of(10, 30),
             LocalDate.of(2026, 1, 5), RepeatRule.Weekly(setOf(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.FRIDAY)), "d"))
         source.plan.setCompleted(source.plans.single().id, LocalDate.of(2026, 1, 5), true)
+        source.note.save(com.zham.domain.model.Note(0, "Plan", "- a\n[x] b", workId, null, Instant.parse("2026-01-01T10:00:00Z"), Instant.parse("2026-01-02T10:00:00Z"), true))
         source.goal.save(Goal(0, "Deep work", workId, Duration.ofHours(10), GoalPeriod.Week, GoalType.AtLeast))
 
-        val text = FullBackup.encode(BuildBackupUseCase(source.time, source.category, source.project, source.plan, source.goal)())
+        val text = FullBackup.encode(BuildBackupUseCase(source.time, source.category, source.project, source.plan, source.goal, source.note)())
         val decoded = FullBackup.decode(text)!!
 
         val target = Mem()
-        val restore = RestoreBackupUseCase(target.time, target.category, target.project, target.plan, target.goal)
+        val restore = RestoreBackupUseCase(target.time, target.category, target.project, target.plan, target.goal, target.note)
         val first = restore(decoded) { 0xFF000000.toInt() }
         first.entries shouldBe 1
         first.plans shouldBe 1
@@ -210,6 +221,8 @@ class FixesTest {
         target.plans.single().repeat shouldBe RepeatRule.Weekly(setOf(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.FRIDAY))
         target.completions.size shouldBe 1
         target.goals.single().target shouldBe Duration.ofHours(10)
+        target.notes.single().body shouldBe "- a\n[x] b"
+        target.notes.single().pinned shouldBe true
 
         // Restoring the same file again must not duplicate anything.
         val second = restore(decoded) { 0xFF000000.toInt() }
@@ -221,6 +234,7 @@ class FixesTest {
         target.projects.size shouldBe 1
         target.plans.size shouldBe 1
         target.completions.size shouldBe 1
+        target.notes.size shouldBe 1
     }
 
     @Test
@@ -236,7 +250,7 @@ class FixesTest {
         val mem = Mem()
         val csv = "start,end,category,project,note,description\n" +
             "2026-01-01T10:00:00Z,2026-01-01T11:00:00Z,Work,,x,\"d1\nd2\"\n"
-        val restore = RestoreBackupUseCase(mem.time, mem.category, mem.project, mem.plan, mem.goal)
+        val restore = RestoreBackupUseCase(mem.time, mem.category, mem.project, mem.plan, mem.goal, mem.note)
         restore(FullBackup.fromCsv(csv)) { 0 }.entries shouldBe 1
         val again = restore(FullBackup.fromCsv(csv)) { 0 }
         again.entries shouldBe 0

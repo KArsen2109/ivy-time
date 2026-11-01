@@ -5,6 +5,8 @@ import com.zham.domain.model.Category
 import com.zham.domain.model.CategoryRepository
 import com.zham.domain.model.Goal
 import com.zham.domain.model.GoalRepository
+import com.zham.domain.model.Note
+import com.zham.domain.model.NoteRepository
 import com.zham.domain.model.PlanBlock
 import com.zham.domain.model.PlanCompletion
 import com.zham.domain.model.PlanRepository
@@ -42,6 +44,7 @@ internal class RoomCategoryRepository(
 
     override suspend fun delete(id: Long) = db.withTransaction {
         db.timeEntryDao().detachCategory(id)
+        db.noteDao().detachCategory(id)
         db.planDao().detachCategory(id)
         db.projectDao().detachCategory(id)
         db.goalDao().deleteByCategory(id)
@@ -59,6 +62,7 @@ internal class RoomProjectRepository(
 
     override suspend fun delete(id: Long) = db.withTransaction {
         db.timeEntryDao().detachProject(id)
+        db.noteDao().detachProject(id)
         db.planDao().detachProject(id)
         // A goal that followed this project has nothing left to count.
         db.goalDao().deleteByProject(id)
@@ -102,4 +106,19 @@ internal class RoomPlanRepository(
             dao.uncomplete(planId, date.toEpochDay())
         }
     }
+}
+
+internal class RoomNoteRepository(
+    private val dao: NoteDao,
+) : NoteRepository {
+    override fun observeNotes(): Flow<List<Note>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun findById(id: Long): Note? = dao.findById(id)?.toDomain()
+
+    override suspend fun save(note: Note): Long {
+        val rowId = dao.save(note.toEntity())
+        return if (note.id == 0L) rowId else note.id
+    }
+
+    override suspend fun delete(id: Long) = dao.delete(id)
 }

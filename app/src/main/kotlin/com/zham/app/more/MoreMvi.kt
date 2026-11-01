@@ -48,6 +48,7 @@ data class MoreState(
     val use24Hours: Boolean,
     val defaultReminder: Int,
     val recordCount: Int,
+    val noteCount: Int,
     val message: String?,
 )
 
@@ -70,6 +71,7 @@ class MoreViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val projectRepository: ProjectRepository,
     private val goalRepository: GoalRepository,
+    private val noteRepository: com.zham.domain.model.NoteRepository,
     private val buildBackup: BuildBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
     private val reminderScheduler: com.zham.app.reminders.ReminderScheduler,
@@ -86,6 +88,7 @@ class MoreViewModel @Inject constructor(
             .collectAsState(emptyList())
         val projects by remember { projectRepository.observeProjects() }.collectAsState(emptyList())
         val goals by remember { goalRepository.observeGoals() }.collectAsState(emptyList())
+        val notes by remember { noteRepository.observeNotes() }.collectAsState(emptyList())
 
         val today = LocalDate.now(clock)
         val weekStart = settings?.weekStart ?: DayOfWeek.MONDAY
@@ -110,6 +113,7 @@ class MoreViewModel @Inject constructor(
             use24Hours = settings?.use24Hours ?: true,
             defaultReminder = settings?.defaultReminder ?: 10,
             recordCount = entries.size,
+            noteCount = notes.size,
             message = message.value,
         )
     }
@@ -165,6 +169,7 @@ class MoreViewModel @Inject constructor(
                 append("Added ${result.entries} records")
                 if (result.plans > 0) append(", ${result.plans} blocks")
                 if (result.goals > 0) append(", ${result.goals} goals")
+                if (result.notes > 0) append(", ${result.notes} notes")
                 append(".")
                 if (result.skipped > 0) append(" ${result.skipped} were already there.")
             }

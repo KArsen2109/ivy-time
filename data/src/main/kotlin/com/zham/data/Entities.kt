@@ -1,5 +1,6 @@
 package com.zham.data
 
+import com.zham.domain.model.Note
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.zham.domain.model.Category
@@ -200,3 +201,24 @@ private fun parseRepeat(raw: String): RepeatRule = when {
     )
     else -> RepeatRule.Once
 }
+
+@Entity(tableName = "notes")
+data class NoteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val title: String,
+    val body: String,
+    val categoryId: Long?,
+    val projectId: Long?,
+    val createdMillis: Long,
+    val updatedMillis: Long,
+    val pinned: Boolean,
+) {
+    fun toDomain() = Note(
+        id, title, body, categoryId, projectId,
+        Instant.ofEpochMilli(createdMillis), Instant.ofEpochMilli(updatedMillis), pinned,
+    )
+}
+
+fun Note.toEntity() = NoteEntity(
+    id, title, body, categoryId, projectId, created.toEpochMilli(), updated.toEpochMilli(), pinned,
+)

@@ -31,6 +31,8 @@ import com.zham.app.day.DayScreen
 import com.zham.app.entry.EntryScreen
 import com.zham.app.goals.GoalsScreen
 import com.zham.app.more.MoreScreen
+import com.zham.app.notes.NoteEditorScreen
+import com.zham.app.notes.NotesScreen
 import com.zham.app.plan.PlanEditorScreen
 import com.zham.app.projects.ProjectsScreen
 import com.zham.app.reports.ReportsScreen
@@ -47,8 +49,12 @@ private object Routes {
     const val CATEGORIES = "categories"
     const val PROJECTS = "projects"
     const val GOALS = "goals"
+    const val NOTES = "notes"
+    const val NOTE = "note/{noteId}"
     const val ENTRY = "entry/{entryId}?date={date}"
     const val PLAN = "plan/{planId}?date={date}&minutes={minutes}"
+
+    fun note(id: Long) = "note/$id"
 
     fun entry(id: Long, date: LocalDate? = null) =
         "entry/$id?date=${date?.toEpochDay() ?: -1}"
@@ -130,11 +136,14 @@ fun MainScreen(selectedDay: SelectedDay) {
                     onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
                     onOpenProjects = { navController.navigate(Routes.PROJECTS) },
                     onOpenGoals = { navController.navigate(Routes.GOALS) },
+                    onOpenNotes = { navController.navigate(Routes.NOTES) },
                 )
             }
             composable(Routes.CATEGORIES) { CategoriesScreen() }
             composable(Routes.PROJECTS) { ProjectsScreen() }
             composable(Routes.GOALS) { GoalsScreen() }
+            composable(Routes.NOTES) { NotesScreen(onOpenNote = { navController.navigate(Routes.note(it)) }) }
+            composable(Routes.NOTE) { NoteEditorScreen(onClose = { navController.popBackStack() }) }
             composable(Routes.ENTRY) { EntryScreen(onClose = { navController.popBackStack() }) }
             composable(Routes.PLAN) { PlanEditorScreen(onClose = { navController.popBackStack() }) }
         }

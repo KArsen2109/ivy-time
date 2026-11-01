@@ -6,6 +6,8 @@ import com.zham.domain.model.Goal
 import com.zham.domain.model.GoalPeriod
 import com.zham.domain.model.GoalRepository
 import com.zham.domain.model.GoalType
+import com.zham.domain.model.Note
+import com.zham.domain.model.NoteRepository
 import com.zham.domain.model.PlanBlock
 import com.zham.domain.model.PlanCompletion
 import com.zham.domain.model.PlanRepository
@@ -33,6 +35,7 @@ data class BackupData(
     val plans: List<PlanItem> = emptyList(),
     val completions: List<CompletionItem> = emptyList(),
     val goals: List<GoalItem> = emptyList(),
+    val notes: List<NoteItem> = emptyList(),
 ) {
     data class CategoryItem(val name: String, val color: Int, val icon: String, val order: Double)
     data class ProjectItem(
@@ -76,9 +79,19 @@ data class BackupData(
         val matchTitle: Boolean = false,
     )
 
+    data class NoteItem(
+        val title: String,
+        val body: String,
+        val category: String,
+        val project: String,
+        val created: Instant,
+        val updated: Instant,
+        val pinned: Boolean,
+    )
+
     val isEmpty: Boolean
         get() = categories.isEmpty() && projects.isEmpty() && entries.isEmpty() &&
-            plans.isEmpty() && goals.isEmpty()
+            plans.isEmpty() && goals.isEmpty() && notes.isEmpty()
 }
 
 object FullBackup {
@@ -145,6 +158,17 @@ object FullBackup {
                     "type" to it.type.name,
                     "project" to it.project,
                     "matchTitle" to it.matchTitle,
+                )
+            },
+            "notes" to data.notes.map {
+                mapOf(
+                    "title" to it.title,
+                    "body" to it.body,
+                    "category" to it.category,
+                    "project" to it.project,
+                    "created" to it.created.toString(),
+                    "updated" to it.updated.toString(),
+                    "pinned" to it.pinned,
                 )
             },
         )
@@ -240,6 +264,18 @@ object FullBackup {
                     matchTitle = it["matchTitle"] == true,
                 )
             },
+            notes = items("notes").mapNotNull {
+                val created = runCatching { Instant.parse(it.str("created")) }.getOrNull() ?: return@mapNotNull null
+                BackupData.NoteItem(
+                    title = it.str("title"),
+                    body = it.str("body"),
+                    category = it.str("category"),
+                    project = it.str("project"),
+                    created = created,
+                    updated = runCatching { Instant.parse(it.str("updated")) }.getOrNull() ?: created,
+                    pinned = it["pinned"] == true,
+                )
+            },
         )
     }
 }
@@ -251,6 +287,7 @@ class BuildBackupUseCase @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val planRepository: PlanRepository,
     private val goalRepository: GoalRepository,
+    private val noteRepository: NoteRepository,
 ) {
     suspend operator fun invoke(): BackupData {
         val categories = categoryRepository.observeCategories().firstOrNull().orEmpty()
@@ -259,6 +296,7 @@ class BuildBackupUseCase @Inject constructor(
         val completions = planRepository.observeCompletions().firstOrNull().orEmpty()
         val goals = goalRepository.observeGoals().firstOrNull().orEmpty()
         val entries = timeRepository.observeEntries().firstOrNull().orEmpty()
+        val notes = noteRepository.observeNotes().firstOrNull().orEmpty()
 
         val categoryNames = categories.associate { it.id to it.name }
         val projectNames = projects.associate { it.id to it.name }
@@ -285,6 +323,12 @@ class BuildBackupUseCase @Inject constructor(
             completions = completions.mapNotNull { completion ->
                 planIndex[completion.planId]?.let { BackupData.CompletionItem(it, completion.date) }
             },
+            notes = notes.map {
+                BackupData.NoteItem(
+                    it.title, it.body, categoryNames[it.categoryId].orEmpty(),
+                    projectNames[it.projectId].orEmpty(), it.created, it.updated, it.pinned,
+                )
+            },
             goals = goals.map {
                 BackupData.GoalItem(
                     it.name, categoryNames[it.categoryId].orEmpty(), it.target.toMinutes(), it.period, it.type,
@@ -295,7 +339,7 @@ class BuildBackupUseCase @Inject constructor(
     }
 }
 
-data class RestoreResult(val entries: Int, val plans: Int, val goals: Int, val skipped: Int)
+data class RestoreResult(val entries: Int, val plans: Int, val goals: Int, val skipped: Int, val notes: Int = 0)
 
 /**
  * Merges a [BackupData] into what is already there. Things are matched by name or by their
@@ -307,13 +351,14 @@ class RestoreBackupUseCase @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val planRepository: PlanRepository,
     private val goalRepository: GoalRepository,
+    private val noteRepository: NoteRepository,
 ) {
     suspend operator fun invoke(data: BackupData, defaultColor: (Int) -> Int): RestoreResult {
         // Categories first: everything else points at them by name.
         var categories = categoryRepository.observeCategories().firstOrNull().orEmpty()
         val wantedCategories = (data.categories.map { it.name } +
             data.projects.map { it.category } + data.entries.map { it.category } +
-            data.plans.map { it.category } + data.goals.map { it.category })
+            data.plans.map { it.category } + data.goals.map { it.category } + data.notes.map { it.category })
             .filter { it.isNotBlank() }
         val byName = data.categories.associateBy { it.name.lowercase() }
         wantedCategories.distinctBy { it.lowercase() }.forEach { name ->
@@ -426,6 +471,20 @@ class RestoreBackupUseCase @Inject constructor(
             }
         }
 
-        return RestoreResult(entriesAdded, plansAdded, goalsAdded, skipped)
+        val knownNotes = noteRepository.observeNotes().firstOrNull().orEmpty()
+            .map { it.title to it.body }.toMutableSet()
+        var notesAdded = 0
+        data.notes.forEach { item ->
+            if (!knownNotes.add(item.title to item.body)) return@forEach
+            noteRepository.save(
+                Note(
+                    0, item.title, item.body, categoryId(item.category).takeIf { item.category.isNotBlank() },
+                    projectId(item.category, item.project), item.created, item.updated, item.pinned,
+                )
+            )
+            notesAdded++
+        }
+
+        return RestoreResult(entriesAdded, plansAdded, goalsAdded, skipped, notesAdded)
     }
 }
