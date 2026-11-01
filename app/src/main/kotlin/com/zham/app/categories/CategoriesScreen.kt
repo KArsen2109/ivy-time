@@ -43,8 +43,8 @@ import com.zham.design.system.ZhamIcons
 import com.zham.design.system.ZhamTheme
 import com.zham.design.system.ScreenHeading
 import com.zham.design.system.Spacing
-import com.zham.app.ui.ColorPickerRow
-import com.zham.app.ui.IconPickerRow
+import com.zham.app.ui.ColorPicker
+import com.zham.app.ui.GlyphPicker
 
 @Composable
 fun CategoriesScreen(modifier: Modifier = Modifier) {
