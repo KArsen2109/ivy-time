@@ -35,7 +35,13 @@ data class BackupData(
     val goals: List<GoalItem> = emptyList(),
 ) {
     data class CategoryItem(val name: String, val color: Int, val icon: String, val order: Double)
-    data class ProjectItem(val name: String, val category: String, val color: Int, val archived: Boolean)
+    data class ProjectItem(
+        val name: String,
+        val category: String,
+        val color: Int,
+        val archived: Boolean,
+        val icon: String = "",
+    )
     data class EntryItem(
         val start: Instant,
         val end: Instant?,
@@ -89,7 +95,10 @@ object FullBackup {
                 mapOf("name" to it.name, "color" to it.color, "icon" to it.icon, "order" to it.order)
             },
             "projects" to data.projects.map {
-                mapOf("name" to it.name, "category" to it.category, "color" to it.color, "archived" to it.archived)
+                mapOf(
+                    "name" to it.name, "category" to it.category, "color" to it.color,
+                    "archived" to it.archived, "icon" to it.icon,
+                )
             },
             "entries" to data.entries.map {
                 mapOf(
@@ -161,6 +170,7 @@ object FullBackup {
                     category = it.str("category"),
                     color = it.int("color") ?: return@mapNotNull null,
                     archived = it["archived"] == true,
+                    icon = it.str("icon"),
                 )
             },
             entries = items("entries").mapNotNull {
@@ -246,7 +256,7 @@ class BuildBackupUseCase @Inject constructor(
         return BackupData(
             categories = categories.map { BackupData.CategoryItem(it.name, it.color, it.icon, it.orderNum) },
             projects = projects.map {
-                BackupData.ProjectItem(it.name, categoryNames[it.categoryId].orEmpty(), it.color, it.archived)
+                BackupData.ProjectItem(it.name, categoryNames[it.categoryId].orEmpty(), it.color, it.archived, it.icon)
             },
             entries = entries.sortedBy { it.start }.map {
                 BackupData.EntryItem(
@@ -324,7 +334,7 @@ class RestoreBackupUseCase @Inject constructor(
                     it.name.equals(name, true) && it.category.equals(categoryName, true)
                 }
                 projectRepository.save(
-                    Project(0, name, owner, item?.color ?: defaultColor(projects.size), item?.archived ?: false)
+                    Project(0, name, owner, item?.color ?: defaultColor(projects.size), item?.archived ?: false, item?.icon.orEmpty())
                 )
                 projects = projectRepository.observeProjects().firstOrNull().orEmpty()
             }

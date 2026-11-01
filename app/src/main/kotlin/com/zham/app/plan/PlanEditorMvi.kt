@@ -191,7 +191,7 @@ class PlanEditorViewModel @Inject constructor(
             projects = projects
                 .filter { !it.archived }
                 .filter { selected == null || it.categoryId == null || it.categoryId == selected }
-                .map { PickerItem(it.id, it.name, Color(it.color)) }
+                .map { PickerItem(it.id, it.name, Color(it.color), it.icon.ifBlank { null }) }
                 .toImmutableList(),
             categoryId = selected,
             projectId = projectId.value,

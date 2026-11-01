@@ -40,6 +40,7 @@ data class ProjectItem(
     val id: Long,
     val name: String,
     val color: Color,
+    val icon: String,
     val categoryId: Long?,
     val categoryName: String?,
     val categoryColor: Color?,
@@ -54,6 +55,7 @@ sealed interface ProjectsEvent {
         val categoryId: Long?,
         val color: Color,
         val archived: Boolean,
+        val icon: String,
     ) : ProjectsEvent
 
     data class Delete(val id: Long) : ProjectsEvent
@@ -88,6 +90,7 @@ class ProjectsViewModel @Inject constructor(
                     id = it.id,
                     name = it.name,
                     color = Color(it.color),
+                    icon = it.icon,
                     categoryId = it.categoryId,
                     categoryName = categoryNames[it.categoryId],
                     categoryColor = categoryColors[it.categoryId],
@@ -111,6 +114,7 @@ class ProjectsViewModel @Inject constructor(
                     categoryId = event.categoryId,
                     color = event.color.toArgb(),
                     archived = event.archived,
+                    icon = event.icon,
                 ).fold(
                     ifLeft = { error.value = it.message() },
                     ifRight = { error.value = null },

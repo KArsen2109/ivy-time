@@ -173,7 +173,7 @@ class EntryViewModel @Inject constructor(
             projects = projects
                 .filter { !it.archived }
                 .filter { selectedCategory == null || it.categoryId == null || it.categoryId == selectedCategory }
-                .map { PickerItem(it.id, it.name, Color(it.color)) }
+                .map { PickerItem(it.id, it.name, Color(it.color), it.icon.ifBlank { null }) }
                 .toImmutableList(),
             categoryId = selectedCategory,
             projectId = projectId.value,

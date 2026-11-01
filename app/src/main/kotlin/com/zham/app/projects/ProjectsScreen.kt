@@ -1,5 +1,6 @@
 package com.zham.app.projects
 
+import com.zham.design.system.GlyphIcon
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,8 @@ import com.zham.design.system.ZhamCard
 import com.zham.design.system.ZhamTheme
 import com.zham.design.system.ScreenHeading
 import com.zham.design.system.Spacing
-import com.zham.app.ui.ColorPickerRow
+import com.zham.app.ui.ColorPicker
+import com.zham.app.ui.GlyphPicker
 import com.zham.app.ui.PickerItem
 import com.zham.app.ui.PickerRow
 
@@ -125,8 +127,8 @@ fun ProjectsUi(
             initial = edited,
             categories = state.categories,
             onDismiss = { dialogVisible = false },
-            onSave = { id, name, categoryId, color, archived ->
-                onEvent(ProjectsEvent.Save(id, name, categoryId, color, archived))
+            onSave = { id, name, categoryId, color, archived, icon ->
+                onEvent(ProjectsEvent.Save(id, name, categoryId, color, archived, icon))
                 dialogVisible = false
             },
         )
@@ -138,12 +140,13 @@ private fun ProjectDialog(
     initial: ProjectItem?,
     categories: List<PickerItem>,
     onDismiss: () -> Unit,
-    onSave: (Long, String, Long?, Color, Boolean) -> Unit,
+    onSave: (Long, String, Long?, Color, Boolean, String) -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var color by remember { mutableStateOf(initial?.color ?: CategoryPalette.first()) }
     var categoryId by remember { mutableStateOf(initial?.categoryId) }
     var archived by remember { mutableStateOf(initial?.archived ?: false) }
+    var icon by remember { mutableStateOf(initial?.icon.orEmpty()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -167,7 +170,8 @@ private fun ProjectDialog(
                         onSelect = { categoryId = it },
                     )
                 }
-                ColorPickerRow(CategoryPalette, color, onSelect = { color = it })
+                ColorPicker(color, onSelect = { color = it })
+                GlyphPicker(icon, color, onSelect = { icon = it })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Archived", Modifier.weight(1f))
                     Switch(checked = archived, onCheckedChange = { archived = it })
@@ -178,7 +182,7 @@ private fun ProjectDialog(
             TextButton(
                 // A project sits under exactly one category, so one has to be chosen first.
                 enabled = name.isNotBlank() && (categories.isEmpty() || categoryId != null),
-                onClick = { onSave(initial?.id ?: 0L, name, categoryId, color, archived) },
+                onClick = { onSave(initial?.id ?: 0L, name, categoryId, color, archived, icon) },
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
@@ -210,7 +214,11 @@ private fun ProjectCard(project: ProjectItem, onClick: () -> Unit, onDelete: () 
         onClick = onClick,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ColorDot(project.color, size = 14.dp)
+            if (project.icon.isNotBlank()) {
+                GlyphIcon(project.icon, tint = project.color, size = 22.dp)
+            } else {
+                ColorDot(project.color, size = 14.dp)
+            }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(

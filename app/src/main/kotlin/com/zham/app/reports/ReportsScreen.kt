@@ -256,7 +256,7 @@ private fun AppliedFilters(state: ReportsState, onEvent: (ReportsEvent) -> Unit)
                 label = category.name + "  ✕",
                 selected = true,
                 color = category.color,
-                icon = category.icon?.let(ZhamIcons::of),
+                glyph = category.icon,
                 onClick = { onEvent(ReportsEvent.RemoveCategory(category.id)) },
             )
         }
@@ -318,7 +318,7 @@ private fun FilterSheet(
                         label = category.name,
                         selected = category.id in chosen,
                         color = category.color,
-                        icon = category.icon?.let(ZhamIcons::of),
+                        glyph = category.icon,
                         onClick = {
                             chosen = if (category.id in chosen) chosen - category.id else chosen + category.id
                         },

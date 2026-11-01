@@ -24,6 +24,8 @@ data class Project(
     val categoryId: Long?,
     val color: Int,
     val archived: Boolean,
+    /** A glyph key (an icon or an emoji); empty means the project shows only its colour. */
+    val icon: String = "",
 )
 
 /** A time record. A null [end] means the timer is running. */

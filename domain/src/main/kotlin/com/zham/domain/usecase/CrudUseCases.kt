@@ -40,9 +40,10 @@ class SaveProjectUseCase @Inject constructor(
         categoryId: Long?,
         color: Int,
         archived: Boolean = false,
+        icon: String = "",
     ): Either<TimeError, Unit> {
         if (name.isBlank()) return TimeError.BlankName.left()
-        repository.save(Project(id, name.trim(), categoryId, color, archived))
+        repository.save(Project(id, name.trim(), categoryId, color, archived, icon))
         return Unit.right()
     }
 }

@@ -1,5 +1,7 @@
 package com.zham.app.categories
 
+import com.zham.design.system.GlyphIcon
+import com.zham.app.ui.GlyphPicker
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -90,12 +92,7 @@ fun CategoriesUi(
                 },
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        ZhamIcons.of(category.icon),
-                        contentDescription = null,
-                        tint = category.color,
-                        modifier = Modifier.size(20.dp),
-                    )
+                    GlyphIcon(category.icon, tint = category.color, size = 22.dp)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(category.name, style = MaterialTheme.typography.titleMedium)
@@ -167,8 +164,8 @@ private fun CategoryDialog(
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                 )
-                ColorPickerRow(CategoryPalette, color, onSelect = { color = it })
-                IconPickerRow(ZhamIcons.keys, icon, color, onSelect = { icon = it })
+                ColorPicker(color, onSelect = { color = it })
+                GlyphPicker(icon, color, onSelect = { icon = it })
             }
         },
         confirmButton = {

@@ -119,6 +119,8 @@ fun ChoiceChip(
     color: Color,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    /** A stored glyph key (see [GlyphIcon]); wins over [icon]. */
+    glyph: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -136,7 +138,9 @@ fun ChoiceChip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (icon != null) {
+        if (glyph != null) {
+            GlyphIcon(glyph, tint = color, size = 16.dp)
+        } else if (icon != null) {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
         } else {
             ColorDot(color)

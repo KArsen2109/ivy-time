@@ -44,7 +44,7 @@ object Ink {
  * Twenty-four category colours: the first eight, picked to sit at a similar weight so no category shouts,
  * and to stay clear of [Ink.Signal] so the now-line is never mistaken for data.
  */
-val CategoryPalette: List<Color> = listOf(
+val SoftPalette: List<Color> = listOf(
     Color(0xFF5B4BFF), // violet
     Color(0xFF2E9BFF), // azure
     Color(0xFF12B886), // jade
@@ -71,6 +71,19 @@ val CategoryPalette: List<Color> = listOf(
     Color(0xFFA18072), // clay
     Color(0xFF889096), // grey
 )
+
+/** Saturated colours that stay clear of the amber reserved for the present moment. */
+val BrightPalette: List<Color> = listOf(
+    Color(0xFFFF1744), Color(0xFFFF5252), Color(0xFFFF4081), Color(0xFFF50057), Color(0xFFE91E63), Color(0xFFD81B60),
+    Color(0xFFE040FB), Color(0xFFD500F9), Color(0xFFAA00FF), Color(0xFF7C4DFF), Color(0xFF651FFF), Color(0xFF6200EA),
+    Color(0xFF536DFE), Color(0xFF3D5AFE), Color(0xFF2979FF), Color(0xFF2962FF), Color(0xFF448AFF), Color(0xFF40C4FF),
+    Color(0xFF00B0FF), Color(0xFF00E5FF), Color(0xFF18FFFF), Color(0xFF1DE9B6), Color(0xFF00BFA5), Color(0xFF00E676),
+    Color(0xFF00C853), Color(0xFF64DD17), Color(0xFF76FF03), Color(0xFFAEEA00), Color(0xFFC6FF00), Color(0xFFB2FF59),
+    Color(0xFFFFEA00), Color(0xFFFFD600), Color(0xFFFFD740), Color(0xFFFFC400), Color(0xFFFF80AB), Color(0xFFEA80FC),
+)
+
+/** Every colour a category or project can have; the softer set comes first so older ones keep theirs. */
+val CategoryPalette: List<Color> = SoftPalette + BrightPalette
 
 private val Instrument = FontFamily(
     Font(R.font.instrument_sans_regular, FontWeight.Normal),

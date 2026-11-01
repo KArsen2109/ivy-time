@@ -265,7 +265,7 @@ private fun Summary(
                             label = category.name,
                             selected = false,
                             color = category.color,
-                            icon = category.icon?.let(ZhamIcons::of),
+                            glyph = category.icon,
                             onClick = { onEvent(DayEvent.QuickStart(category.id)) },
                         )
                     }

@@ -35,8 +35,9 @@ data class ProjectEntity(
     val categoryId: Long?,
     val color: Int,
     val archived: Boolean,
+    val icon: String = "",
 ) {
-    fun toDomain() = Project(id, name, categoryId, color, archived)
+    fun toDomain() = Project(id, name, categoryId, color, archived, icon)
 }
 
 @Entity(tableName = "time_entries")
@@ -86,7 +87,7 @@ data class GoalEntity(
 
 fun Category.toEntity() = CategoryEntity(id, name, color, icon, orderNum)
 
-fun Project.toEntity() = ProjectEntity(id, name, categoryId, color, archived)
+fun Project.toEntity() = ProjectEntity(id, name, categoryId, color, archived, icon)
 
 fun TimeEntry.toEntity() = TimeEntryEntity(
     id = id,

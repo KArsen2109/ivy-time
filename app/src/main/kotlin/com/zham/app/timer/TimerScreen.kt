@@ -114,7 +114,7 @@ fun TimerUi(
                             label = category.name,
                             selected = state.selectedCategoryId == category.id,
                             color = category.color,
-                            icon = category.icon?.let(ZhamIcons::of),
+                            glyph = category.icon,
                             onClick = { onEvent(TimerEvent.SelectCategory(category.id)) },
                         )
                     }

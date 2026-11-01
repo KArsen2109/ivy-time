@@ -150,7 +150,7 @@ class TimerViewModel @Inject constructor(
             // A project always sits under one category, so only that category's are offered.
             projects = projects
                 .filter { !it.archived && it.categoryId == selected }
-                .map { PickerItem(it.id, it.name, Color(it.color)) }
+                .map { PickerItem(it.id, it.name, Color(it.color), it.icon.ifBlank { null }) }
                 .toImmutableList(),
             selectedProjectId = pickedProject.value?.takeIf { id ->
                 projectsById[id]?.categoryId == selected

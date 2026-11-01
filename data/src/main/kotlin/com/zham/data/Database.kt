@@ -87,7 +87,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -151,5 +151,12 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE goals ADD COLUMN projectId INTEGER")
         db.execSQL("ALTER TABLE goals ADD COLUMN matchTitle INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** 6 to 7 lets a project carry an icon or emoji of its own. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE projects ADD COLUMN icon TEXT NOT NULL DEFAULT ''")
     }
 }

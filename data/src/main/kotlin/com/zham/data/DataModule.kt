@@ -24,7 +24,7 @@ object DataModule {
     @Singleton
     fun database(@ApplicationContext context: Context): ZhamDatabase {
         return Room.databaseBuilder(context, ZhamDatabase::class.java, DATABASE_NAME)
-            .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .build()
     }
 

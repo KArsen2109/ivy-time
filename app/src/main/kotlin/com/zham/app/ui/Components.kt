@@ -1,5 +1,11 @@
 package com.zham.app.ui
 
+import com.zham.design.system.ZhamShapes
+import com.zham.design.system.GlyphIcon
+import com.zham.design.system.ZhamEmojis
+import com.zham.design.system.SoftPalette
+import com.zham.design.system.BrightPalette
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.selection.selectable
@@ -60,23 +66,33 @@ fun PickerRow(
                 label = item.name,
                 selected = selected,
                 color = item.color,
-                icon = item.icon?.let(ZhamIcons::of),
+                glyph = item.icon,
                 onClick = { onSelect(if (selected) null else item.id) },
             )
         }
     }
 }
 
-/** All the colours at once, wrapping onto as many rows as they need. */
+/** A titled box with a visible edge, so the colour block and the emoji block can never be mixed up. */
+@Composable
+private fun PickerSection(title: String, content: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(ZhamShapes.Field)
+            .border(1.dp, ZhamTheme.extra.line, ZhamShapes.Field)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall, color = ZhamTheme.extra.slate)
+        content()
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ColorPickerRow(
-    colors: List<Color>,
-    selected: Color,
-    onSelect: (Color) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    FlowRow(modifier = modifier.fillMaxWidth()) {
+private fun Swatches(colors: List<Color>, selected: Color, onSelect: (Color) -> Unit) {
+    FlowRow(modifier = Modifier.fillMaxWidth()) {
         colors.forEachIndexed { index, color ->
             Box(
                 Modifier
@@ -102,36 +118,55 @@ fun ColorPickerRow(
     }
 }
 
-/** All the icons at once, so none hides off the edge of a scrolling row. */
+/** Every colour on offer in two clearly separate boxes: the bright ones first, then the softer ones. */
+@Composable
+fun ColorPicker(selected: Color, onSelect: (Color) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PickerSection("Bright colours") { Swatches(BrightPalette, selected, onSelect) }
+        PickerSection("Soft and deep colours") { Swatches(SoftPalette, selected, onSelect) }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun IconPickerRow(
-    keys: List<String>,
-    selected: String,
-    tint: Color,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    FlowRow(modifier = modifier.fillMaxWidth()) {
-        keys.forEach { key ->
-            Box(
-                Modifier
-                    .minimumInteractiveComponentSize()
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (key == selected) tint.copy(alpha = 0.18f)
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    .selectable(selected = key == selected, role = Role.RadioButton, onClick = { onSelect(key) }),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    ZhamIcons.of(key),
-                    contentDescription = key,
-                    tint = if (key == selected) tint else ZhamTheme.extra.slate,
-                    modifier = Modifier.size(20.dp),
-                )
+private fun GlyphCell(selected: Boolean, tint: Color, label: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .minimumInteractiveComponentSize()
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(if (selected) tint.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** Emoji, grouped by theme, and the plain icons, each set in its own box with a title. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun GlyphPicker(selected: String, tint: Color, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PickerSection("Emoji") {
+            ZhamEmojis.groups.forEach { (group, emojis) ->
+                Text(group, style = MaterialTheme.typography.labelMedium, color = ZhamTheme.extra.slate)
+                FlowRow(modifier = Modifier.fillMaxWidth()) {
+                    emojis.forEach { emoji ->
+                        val key = ZhamEmojis.key(emoji)
+                        GlyphCell(selected == key, tint, emoji, onClick = { onSelect(key) }) {
+                            GlyphIcon(key, tint = tint, size = 22.dp)
+                        }
+                    }
+                }
+            }
+        }
+        PickerSection("Icons") {
+            FlowRow(modifier = Modifier.fillMaxWidth()) {
+                ZhamIcons.keys.forEach { key ->
+                    GlyphCell(selected == key, tint, key, onClick = { onSelect(key) }) {
+                        GlyphIcon(key, tint = if (selected == key) tint else ZhamTheme.extra.slate, size = 20.dp)
+                    }
+                }
             }
         }
     }
