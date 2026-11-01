@@ -76,4 +76,8 @@ sealed interface TimeError {
     data object NonPositiveDuration : TimeError
     data object NoWeekdaysChosen : TimeError
     data object PlanNotFound : TimeError
+    data object PresetNotFound : TimeError
+    data object NoAccount : TimeError
+    data object InvalidAmount : TimeError
+    data object InvalidLoan : TimeError
 }

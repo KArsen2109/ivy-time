@@ -271,6 +271,7 @@ private fun Summary(
         if (running != null) {
             RunningBar(running, onStop = { onEvent(DayEvent.StopTimer) })
         } else {
+            com.zham.app.money.ActivityPresetRow(Modifier.padding(bottom = 8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 QuietButton(
                     text = "Plan a block",

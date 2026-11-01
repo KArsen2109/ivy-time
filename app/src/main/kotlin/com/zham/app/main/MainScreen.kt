@@ -1,5 +1,14 @@
 package com.zham.app.main
 
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import com.zham.domain.model.TxType
+import com.zham.app.money.TxScreen
+import com.zham.app.money.PresetsScreen
+import com.zham.app.money.MoneyScreen
+import com.zham.app.money.MoneyCategoriesScreen
+import com.zham.app.money.LoansScreen
+import com.zham.app.money.LoanEditorScreen
+import com.zham.app.money.AccountsScreen
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
@@ -50,11 +59,22 @@ private object Routes {
     const val PROJECTS = "projects"
     const val GOALS = "goals"
     const val NOTES = "notes"
+    const val MONEY = "money"
+    const val TX = "tx/{txId}?type={type}"
+    const val ACCOUNTS = "accounts"
+    const val MONEY_CATEGORIES = "moneycategories"
+    const val PRESETS = "presets"
+    const val LOANS = "loans"
+    const val LOAN = "loan/{loanId}"
     const val NOTE = "note/{noteId}"
     const val ENTRY = "entry/{entryId}?date={date}"
     const val PLAN = "plan/{planId}?date={date}&minutes={minutes}"
 
     fun note(id: Long) = "note/$id"
+
+    fun tx(id: Long, type: TxType) = "tx/$id?type=${type.name}"
+
+    fun loan(id: Long) = "loan/$id"
 
     fun entry(id: Long, date: LocalDate? = null) =
         "entry/$id?date=${date?.toEpochDay() ?: -1}"
@@ -67,6 +87,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     Timer(Routes.TIMER, "Timer", Icons.Rounded.Timer),
     Day(Routes.DAY, "Day", Icons.Rounded.Today),
     Week(Routes.WEEK, "Week", Icons.Rounded.CalendarViewWeek),
+    Money(Routes.MONEY, "Money", Icons.Rounded.AccountBalanceWallet),
     Reports(Routes.REPORTS, "Reports", Icons.Rounded.BarChart),
     More(Routes.MORE, "More", Icons.Rounded.MoreHoriz),
 }
@@ -130,6 +151,12 @@ fun MainScreen(selectedDay: SelectedDay) {
                     }
                 )
             }
+            composable(Routes.MONEY) {
+                MoneyScreen(
+                    onOpenTransaction = { id, type -> navController.navigate(Routes.tx(id, type)) },
+                    onOpenAccounts = { navController.navigate(Routes.ACCOUNTS) },
+                )
+            }
             composable(Routes.REPORTS) { ReportsScreen() }
             composable(Routes.MORE) {
                 MoreScreen(
@@ -137,11 +164,21 @@ fun MainScreen(selectedDay: SelectedDay) {
                     onOpenProjects = { navController.navigate(Routes.PROJECTS) },
                     onOpenGoals = { navController.navigate(Routes.GOALS) },
                     onOpenNotes = { navController.navigate(Routes.NOTES) },
+                    onOpenAccounts = { navController.navigate(Routes.ACCOUNTS) },
+                    onOpenMoneyCategories = { navController.navigate(Routes.MONEY_CATEGORIES) },
+                    onOpenPresets = { navController.navigate(Routes.PRESETS) },
+                    onOpenLoans = { navController.navigate(Routes.LOANS) },
                 )
             }
             composable(Routes.CATEGORIES) { CategoriesScreen() }
             composable(Routes.PROJECTS) { ProjectsScreen() }
             composable(Routes.GOALS) { GoalsScreen() }
+            composable(Routes.ACCOUNTS) { AccountsScreen() }
+            composable(Routes.MONEY_CATEGORIES) { MoneyCategoriesScreen() }
+            composable(Routes.PRESETS) { PresetsScreen() }
+            composable(Routes.LOANS) { LoansScreen(onOpenLoan = { navController.navigate(Routes.loan(it)) }) }
+            composable(Routes.LOAN) { LoanEditorScreen(onClose = { navController.popBackStack() }) }
+            composable(Routes.TX) { TxScreen(onClose = { navController.popBackStack() }) }
             composable(Routes.NOTES) { NotesScreen(onOpenNote = { navController.navigate(Routes.note(it)) }) }
             composable(Routes.NOTE) { NoteEditorScreen(onClose = { navController.popBackStack() }) }
             composable(Routes.ENTRY) { EntryScreen(onClose = { navController.popBackStack() }) }

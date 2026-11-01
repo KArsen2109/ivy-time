@@ -1,5 +1,11 @@
 package com.zham.app
 
+import com.zham.design.system.ZhamEmojis
+import com.zham.design.system.BrightPalette
+import com.zham.domain.model.MoneyCategoryRepository
+import com.zham.domain.model.MoneyCategory
+import com.zham.domain.model.AccountRepository
+import com.zham.domain.model.Account
 import android.app.Application
 import androidx.compose.ui.graphics.toArgb
 import com.zham.design.system.CategoryPalette
@@ -30,6 +36,12 @@ class ZhamApplication : Application() {
     lateinit var planRepository: PlanRepository
 
     @Inject
+    lateinit var accountRepository: AccountRepository
+
+    @Inject
+    lateinit var moneyCategoryRepository: MoneyCategoryRepository
+
+    @Inject
     lateinit var reminderScheduler: ReminderScheduler
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -37,7 +49,38 @@ class ZhamApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         seedDefaultCategories()
+        seedMoney()
         keepRemindersCurrent()
+    }
+
+    /**
+     * Money starts with one cash account in the phone's own currency and the usual categories, so the
+     * first expense takes seconds. Like the time categories it runs once, and what is deleted stays deleted.
+     */
+    private fun seedMoney() {
+        scope.launch {
+            runCatching {
+                if (settingsStore.settings.first().moneySeeded) return@launch
+                if (accountRepository.observeAccounts().first().isEmpty()) {
+                    val code = runCatching { java.util.Currency.getInstance(java.util.Locale.getDefault()).currencyCode }
+                        .getOrDefault("USD")
+                    accountRepository.save(
+                        Account(0, "Cash", code, CategoryPalette[2].toArgb(), ZhamEmojis.key("💵"), 0, 0.0)
+                    )
+                }
+                if (moneyCategoryRepository.observeCategories().first().isEmpty()) {
+                    listOf(
+                        "Food" to "🍔", "Transport" to "🚌", "Home" to "🏠", "Health" to "💊",
+                        "Shopping" to "🛍️", "Fun" to "🎮", "Salary" to "💰", "Other" to "⭐",
+                    ).forEachIndexed { index, (name, emoji) ->
+                        moneyCategoryRepository.save(
+                            MoneyCategory(0, name, BrightPalette[(index * 3) % BrightPalette.size].toArgb(), ZhamEmojis.key(emoji), index.toDouble())
+                        )
+                    }
+                }
+                settingsStore.setMoneySeeded(true)
+            }
+        }
     }
 
     /** Re-plans the reminder alarm at start and whenever a block or tick-off changes. */

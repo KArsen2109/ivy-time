@@ -20,6 +20,10 @@ class TimeFormatters(private val zone: ZoneId, use24Hours: Boolean) {
 
     fun time(value: LocalTime): String = time.format(value)
 
+    private val monthYear = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+
+    fun monthYear(month: java.time.YearMonth): String = monthYear.format(month)
+
     fun weekdayAndDate(date: LocalDate): String = full.format(date)
 
     fun shortDate(date: LocalDate): String = short.format(date)

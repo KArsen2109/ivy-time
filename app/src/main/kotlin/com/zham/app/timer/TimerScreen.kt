@@ -104,6 +104,7 @@ fun TimerUi(
             }
 
             if (!state.running) {
+                com.zham.app.money.ActivityPresetRow()
                 SectionLabel("Track")
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),

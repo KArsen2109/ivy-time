@@ -29,4 +29,8 @@ fun TimeError.message(): String = when (this) {
     TimeError.NonPositiveDuration -> "The block needs to last longer than zero."
     TimeError.NoWeekdaysChosen -> "Pick at least one weekday."
     TimeError.PlanNotFound -> "That block is gone."
+    TimeError.PresetNotFound -> "That standard entry is gone."
+    TimeError.NoAccount -> "Add an account first (More, under Money)."
+    TimeError.InvalidAmount -> "Enter an amount above zero."
+    TimeError.InvalidLoan -> "A loan needs an amount, a term of at least one month and a rate of 0 or more."
 }

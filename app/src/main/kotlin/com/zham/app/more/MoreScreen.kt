@@ -56,6 +56,10 @@ fun MoreScreen(
     onOpenProjects: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onOpenMoneyCategories: () -> Unit,
+    onOpenPresets: () -> Unit,
+    onOpenLoans: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: MoreViewModel = hiltViewModel()
@@ -108,6 +112,10 @@ fun MoreScreen(
         onOpenProjects = onOpenProjects,
         onOpenGoals = onOpenGoals,
         onOpenNotes = onOpenNotes,
+        onOpenAccounts = onOpenAccounts,
+        onOpenMoneyCategories = onOpenMoneyCategories,
+        onOpenPresets = onOpenPresets,
+        onOpenLoans = onOpenLoans,
         onExportFull = { fullLauncher.launch("zham-backup.json") },
         onExport = { exportSheet = true },
         // A backup may be offered with any file type, so none is filtered out.
@@ -135,6 +143,10 @@ fun MoreUi(
     onOpenProjects: () -> Unit,
     onOpenGoals: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    onOpenMoneyCategories: () -> Unit,
+    onOpenPresets: () -> Unit,
+    onOpenLoans: () -> Unit,
     onExportFull: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -253,6 +265,14 @@ fun MoreUi(
                     preview = {},
                 )
                 Spacer(Modifier.weight(2f))
+            }
+
+            SectionLabel("Money")
+            ZhamCard(Modifier.padding(horizontal = Spacing.Gutter)) {
+                SettingRow("Accounts", "Cash, cards, savings, each with a balance", onOpenAccounts, horizontalPadding = 0.dp)
+                SettingRow("Money categories", "Food, transport, salary", onOpenMoneyCategories, horizontalPadding = 0.dp)
+                SettingRow("Standard entries", "One tap to record a usual expense, income or activity", onOpenPresets, horizontalPadding = 0.dp)
+                SettingRow("Loans", "Monthly payment, schedule and progress", onOpenLoans, horizontalPadding = 0.dp)
             }
 
             SectionLabel("Reminders")

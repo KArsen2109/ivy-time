@@ -21,6 +21,7 @@ data class AppSettings(
     val onboardingDone: Boolean,
     /** Minutes before a block starts at which a new block is reminded by default; -1 for none. */
     val defaultReminder: Int,
+    val moneySeeded: Boolean,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "zham-settings")
@@ -33,6 +34,7 @@ class SettingsStore(
     private val use24HoursKey = booleanPreferencesKey("use_24_hours")
     private val onboardingKey = booleanPreferencesKey("onboarding_done")
     private val defaultReminderKey = intPreferencesKey("default_reminder")
+    private val moneySeededKey = booleanPreferencesKey("money_seeded")
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
@@ -42,6 +44,7 @@ class SettingsStore(
             use24Hours = prefs[use24HoursKey] ?: true,
             onboardingDone = prefs[onboardingKey] ?: false,
             defaultReminder = prefs[defaultReminderKey] ?: 10,
+            moneySeeded = prefs[moneySeededKey] ?: false,
         )
     }
 
@@ -64,6 +67,10 @@ class SettingsStore(
 
     suspend fun setLastReminderMillis(millis: Long) {
         context.dataStore.edit { it[lastReminderKey] = millis }
+    }
+
+    suspend fun setMoneySeeded(done: Boolean) {
+        context.dataStore.edit { it[moneySeededKey] = done }
     }
 
     suspend fun setDefaultReminder(minutes: Int) {
