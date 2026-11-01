@@ -41,6 +41,8 @@ data class TimelineBlock(
     val color: Color,
     val done: Boolean = false,
     val running: Boolean = false,
+    /** A moment with no length, drawn as a short marker. */
+    val point: Boolean = false,
 )
 
 const val MINUTES_PER_DAY: Int = 24 * 60
@@ -204,7 +206,7 @@ private fun BlockView(block: TimelineBlock, planned: Boolean, onClick: () -> Uni
     ) {
         Column {
             Text(
-                text = block.label,
+                text = if (block.point) "● " + block.label else block.label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = if (planned) MaterialTheme.colorScheme.onSurface else onFill,

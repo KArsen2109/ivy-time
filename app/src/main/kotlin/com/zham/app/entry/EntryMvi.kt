@@ -58,6 +58,8 @@ data class EntryState(
     val marks: CalendarMarks,
     val error: String?,
     val canSave: Boolean,
+    /** A moment with no length. */
+    val point: Boolean,
     /** True when another record already covers part of this time. */
     val overlapsOther: Boolean,
     /** Titles used before in this category or project. */
@@ -74,6 +76,7 @@ sealed interface EntryEvent {
     data class SetEnd(val time: LocalTime) : EntryEvent
     /** Moves the start back from the end by a fixed amount, for one-tap logging. */
     data class SetDuration(val minutes: Long) : EntryEvent
+    data class SetPoint(val point: Boolean) : EntryEvent
     data object Save : EntryEvent
     data object Delete : EntryEvent
 }
@@ -116,6 +119,7 @@ class EntryViewModel @Inject constructor(
      * clock change, really was.
      */
     private val fixedDuration = mutableStateOf<Duration?>(null)
+    private val point = mutableStateOf(false)
     private var saving = false
     /** The exact start of a loaded record, used again while its date and start time stay as loaded. */
     private var loadedStart: Triple<LocalDate, LocalTime, java.time.Instant>? = null
@@ -146,6 +150,7 @@ class EntryViewModel @Inject constructor(
                     date.value = startLocal.toLocalDate()
                     start.value = startLocal.toLocalTime().withSecond(0).withNano(0)
                     end.value = endLocal.toLocalTime().withSecond(0).withNano(0)
+                    point.value = entry.point
                     fixedDuration.value = Duration.between(entry.start, entry.end)
                     loadedStart = Triple(date.value, start.value, entry.start)
                 }
@@ -185,8 +190,8 @@ class EntryViewModel @Inject constructor(
             dateLabel = formatters.shortDate(date.value),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
-            durationLabel = duration().formatShort(),
-            crossesMidnight = fixedDuration.value == null && !end.value.isAfter(start.value),
+            durationLabel = if (point.value) "–" else duration().formatShort(),
+            crossesMidnight = !point.value && fixedDuration.value == null && !end.value.isAfter(start.value),
             date = date.value,
             start = start.value,
             end = end.value,
@@ -197,6 +202,7 @@ class EntryViewModel @Inject constructor(
             marks = remember(entries, plans, clock.zone) { calendarMarks(entries, plans, clock.zone) },
             error = problem ?: error.value,
             canSave = problem == null,
+            point = point.value,
             overlapsOther = overlapsOther(entries),
             titleSuggestions = remember(entries, plans, categoryId.value, projectId.value, note.value) {
                 titleSuggestions(entries, plans, categoryId.value, projectId.value, note.value).toImmutableList()
@@ -237,6 +243,7 @@ class EntryViewModel @Inject constructor(
                 date.value = newStart.toLocalDate()
                 start.value = newStart.toLocalTime().withSecond(0).withNano(0)
             }
+            is EntryEvent.SetPoint -> point.value = event.point
             EntryEvent.Save -> save()
             EntryEvent.Delete -> viewModelScope.launch {
                 if (entryId != 0L) timeRepository.delete(entryId)
@@ -247,12 +254,14 @@ class EntryViewModel @Inject constructor(
 
     /** An end that is not after the start means the record ran past midnight. */
     private fun duration(): Duration {
+        if (point.value) return Duration.ZERO
         val raw = Duration.between(start.value, end.value)
         return fixedDuration.value ?: if (raw.isNegative || raw.isZero) raw.plusDays(1) else raw
     }
 
     private fun overlapsOther(entries: List<com.zham.domain.model.TimeEntry>): Boolean {
         val from = date.value.atTime(start.value).atZone(clock.zone).toInstant()
+        if (point.value) return false
         val to = from.plus(duration())
         val now = clock.instant()
         return entries.any { it.id != entryId && it.start < to && (it.end ?: now) > from }
@@ -280,6 +289,7 @@ class EntryViewModel @Inject constructor(
                 start = startInstant,
                 end = endInstant,
                 description = description.value,
+                point = point.value,
             ).fold(
                 ifLeft = {
                     saving = false

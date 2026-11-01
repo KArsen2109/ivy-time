@@ -50,6 +50,9 @@ data class TimeEntryEntity(
     /** Null while the timer is running. */
     val endMillis: Long?,
     val description: String = "",
+    val point: Boolean = false,
+    val planId: Long? = null,
+    val planEpochDay: Long? = null,
 ) {
     fun toDomain() = TimeEntry(
         id = id,
@@ -59,6 +62,9 @@ data class TimeEntryEntity(
         start = Instant.ofEpochMilli(startMillis),
         end = endMillis?.let(Instant::ofEpochMilli),
         description = description,
+        point = point,
+        planId = planId,
+        planDate = planEpochDay?.let(LocalDate::ofEpochDay),
     )
 }
 
@@ -97,6 +103,9 @@ fun TimeEntry.toEntity() = TimeEntryEntity(
     startMillis = start.toEpochMilli(),
     endMillis = end?.toEpochMilli(),
     description = description,
+    point = point,
+    planId = planId,
+    planEpochDay = planDate?.toEpochDay(),
 )
 
 fun Goal.toEntity() = GoalEntity(
@@ -127,6 +136,7 @@ data class PlanBlockEntity(
     val repeat: String,
     val description: String = "",
     val reminderMinutes: Int? = null,
+    val point: Boolean = false,
 ) {
     fun toDomain() = PlanBlock(
         id = id,
@@ -139,6 +149,7 @@ data class PlanBlockEntity(
         repeat = parseRepeat(repeat),
         description = description,
         reminderMinutes = reminderMinutes,
+        point = point,
     )
 }
 
@@ -161,6 +172,7 @@ fun PlanBlock.toEntity() = PlanBlockEntity(
     repeat = writeRepeat(repeat),
     description = description,
     reminderMinutes = reminderMinutes,
+    point = point,
 )
 
 private fun writeRepeat(rule: RepeatRule): String = when (rule) {

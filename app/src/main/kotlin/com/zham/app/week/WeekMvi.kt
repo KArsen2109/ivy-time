@@ -195,7 +195,7 @@ class WeekViewModel @Inject constructor(
                 GoalRow(
                     id = goal.id,
                     name = goal.name,
-                    detail = progress.spent.formatShort() + " of " +
+                    detail = "${(progress.fraction * 100).toInt()}% · " + progress.spent.formatShort() + " of " +
                         (if (goal.type == GoalType.AtLeast) "at least " else "at most ") +
                         goal.target.formatShort(),
                     fraction = progress.fraction,

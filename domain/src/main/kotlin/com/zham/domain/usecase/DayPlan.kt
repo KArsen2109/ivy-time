@@ -108,3 +108,23 @@ fun minutesFromMidnight(instant: Instant, date: LocalDate, zone: ZoneId): Int {
 /** The completions of [planId] as a set, for a quick `in` check. */
 fun List<PlanCompletion>.toSet(planId: Long): Set<LocalDate> =
     filter { it.planId == planId }.map { it.date }.toSet()
+
+/** What is left of a day: the time still to come, and how much of it no planned block has claimed. */
+data class DayBalance(val left: Duration, val free: Duration)
+
+/**
+ * For today the window starts at [now]; for any other day it is the whole day. Planned blocks are
+ * counted once even where they overlap, and only their part inside the window counts.
+ */
+fun dayBalance(date: LocalDate, occurrences: List<PlanOccurrence>, zone: ZoneId, now: Instant): DayBalance {
+    val dayStart = date.atStartOfDay(zone).toInstant()
+    val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
+    val from = if (now > dayStart && now < dayEnd) now else if (now >= dayEnd) dayEnd else dayStart
+    val window = Duration.between(from, dayEnd)
+    val claimed = unionLength(occurrences.mapNotNull {
+        val start = maxOf(it.startsAt, from)
+        val end = minOf(it.endsAt, dayEnd)
+        if (end.isAfter(start)) start to end else null
+    })
+    return DayBalance(left = window, free = window - claimed)
+}

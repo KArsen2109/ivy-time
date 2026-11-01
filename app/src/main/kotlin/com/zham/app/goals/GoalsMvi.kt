@@ -120,7 +120,8 @@ class GoalsViewModel @Inject constructor(
                         projectsById[goal.projectId]?.let { append(" / ").append(it.name) }
                         if (goal.matchTitle) append(" · titled \"").append(goal.name).append("\"")
                     },
-                    progressLabel = progress.spent.formatShort() + " of " + goal.target.formatShort(),
+                    progressLabel = "${(progress.fraction * 100).toInt()}% · " + progress.spent.formatShort() +
+                        " of " + goal.target.formatShort(),
                     fraction = progress.fraction,
                     met = progress.met,
                     color = Color(category?.color ?: DEFAULT_COLOR),

@@ -25,6 +25,7 @@ import com.zham.domain.usecase.CompletePlanUseCase
 import com.zham.domain.usecase.StartTimerUseCase
 import com.zham.domain.usecase.StopTimerUseCase
 import com.zham.domain.usecase.UncompletePlanUseCase
+import com.zham.domain.usecase.dayBalance
 import com.zham.domain.usecase.dayPlan
 import com.zham.domain.usecase.minutesFromMidnight
 import com.zham.domain.usecase.formatHms
@@ -88,6 +89,7 @@ class DayViewModel @Inject constructor(
         val projectsById = projects.associateBy { it.id }
         val occurrences = occurrencesOn(plans, date, zone, completions.toSet())
         val day = dayPlan(date, occurrences, entries, zone, now)
+        val balance = dayBalance(date, occurrences, zone, now)
 
         val plannedBlocks = occurrences.map { it.toBlock(date, zone, categoriesById) }
         val actualBlocks = day.entries.map { it.toBlock(date, zone, now, categoriesById, projectsById) }
@@ -107,6 +109,8 @@ class DayViewModel @Inject constructor(
             keptPercent = (day.adherence * 100).toInt().coerceIn(0, 999),
             adherence = day.adherence,
             unplannedLabel = day.unplanned.formatShort(),
+            leftLabel = balance.left.formatShort(),
+            freeLabel = balance.free.formatShort(),
             planned = plannedBlocks.toImmutableList(),
             actual = actualBlocks.toImmutableList(),
             nowMinutes = if (date == today) {
@@ -134,9 +138,17 @@ class DayViewModel @Inject constructor(
                     PlanSheet(
                         planId = occurrence.plan.id,
                         date = occurrence.date,
+                        point = occurrence.plan.point,
+                        startsInFuture = occurrence.startsAt.isAfter(now),
+                        plannedMinutes = occurrence.plan.duration.toMinutes(),
+                        now = java.time.LocalTime.ofInstant(now, zone).withSecond(0).withNano(0),
+                        is24Hour = settings?.use24Hours ?: true,
                         title = occurrence.plan.note.ifBlank { category?.name ?: "Planned block" },
-                        timeRange = formatters.time(occurrence.plan.start) + " – " +
-                            formatters.time(occurrence.plan.end),
+                        timeRange = if (occurrence.plan.point) {
+                            formatters.time(occurrence.plan.start)
+                        } else {
+                            formatters.time(occurrence.plan.start) + " – " + formatters.time(occurrence.plan.end)
+                        },
                         repeatLabel = occurrence.plan.repeat.label(),
                         description = occurrence.plan.description,
                         done = occurrence.done,
@@ -167,6 +179,17 @@ class DayViewModel @Inject constructor(
                 val plan = planRepository.findById(event.planId)
                 openPlanId.value = null
                 if (plan != null) launchStart(plan.categoryId, plan.projectId, plan.note, plan.description)
+            }
+            is DayEvent.CompletePlanEarly -> viewModelScope.launch {
+                openPlanId.value = null
+                val zone = clock.zone
+                val today = LocalDate.now(clock)
+                val endAt = today.atTime(event.end).atZone(zone).toInstant()
+                var startAt = today.atTime(event.start).atZone(zone).toInstant()
+                // A start that is not before the end was on the day before.
+                if (!startAt.isBefore(endAt)) startAt = startAt.minus(Duration.ofDays(1))
+                completePlan(event.planId, event.date, startAt, endAt)
+                    .fold({ error.value = it.message() }, { error.value = null })
             }
             is DayEvent.TogglePlanDone -> viewModelScope.launch {
                 openPlanId.value = null
@@ -208,6 +231,7 @@ class DayViewModel @Inject constructor(
             detail = plan.duration.formatShort(),
             color = Color(category?.color ?: UNCATEGORISED),
             done = done,
+            point = plan.point,
         )
     }
 
@@ -229,6 +253,7 @@ class DayViewModel @Inject constructor(
             detail = projects[projectId]?.name ?: duration(now).formatShort(),
             color = Color(category?.color ?: UNCATEGORISED),
             running = isRunning,
+            point = point,
         )
     }
 }

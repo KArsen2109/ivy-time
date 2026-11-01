@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import com.zham.app.ui.NoDurationRow
 import com.zham.app.ui.TitleSuggestions
 import java.util.Locale
 import java.time.format.TextStyle
@@ -201,6 +202,7 @@ fun PlanEditorUi(
             }
         }
 
+        NoDurationRow(state.point, onChange = { onEvent(PlanEditorEvent.SetPoint(it)) })
         Row(
             Modifier
                 .fillMaxWidth()
@@ -208,26 +210,28 @@ fun PlanEditorUi(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             FieldButton(
-                label = "Starts",
+                label = if (state.point) "At" else "Starts",
                 value = state.startLabel,
                 onClick = { startPicker = true },
                 modifier = Modifier.weight(1f),
             )
-            FieldButton(
-                label = if (state.crossesMidnight) "Ends next day" else "Ends",
-                value = state.endLabel,
-                onClick = { endPicker = true },
-                modifier = Modifier.weight(1f),
-            )
-            FieldButton(
-                label = "Length",
-                value = state.durationLabel,
-                onClick = { endPicker = true },
-                modifier = Modifier.weight(1f),
-            )
+            if (!state.point) {
+                FieldButton(
+                    label = if (state.crossesMidnight) "Ends next day" else "Ends",
+                    value = state.endLabel,
+                    onClick = { endPicker = true },
+                    modifier = Modifier.weight(1f),
+                )
+                FieldButton(
+                    label = "Length",
+                    value = state.durationLabel,
+                    onClick = { endPicker = true },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
-        LazyRow(
+        if (!state.point) LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = Spacing.Gutter),

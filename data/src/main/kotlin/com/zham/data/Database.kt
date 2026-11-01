@@ -87,7 +87,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -158,5 +158,15 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE projects ADD COLUMN icon TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/** 7 to 8 adds moments without length, and the link from a record to the block it was made from. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE time_entries ADD COLUMN point INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE time_entries ADD COLUMN planId INTEGER")
+        db.execSQL("ALTER TABLE time_entries ADD COLUMN planEpochDay INTEGER")
+        db.execSQL("ALTER TABLE plan_blocks ADD COLUMN point INTEGER NOT NULL DEFAULT 0")
     }
 }

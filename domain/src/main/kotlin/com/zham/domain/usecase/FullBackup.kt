@@ -49,6 +49,7 @@ data class BackupData(
         val project: String,
         val note: String,
         val description: String,
+        val point: Boolean = false,
     )
     data class PlanItem(
         val category: String,
@@ -60,6 +61,7 @@ data class BackupData(
         val startDate: LocalDate,
         val repeat: RepeatRule,
         val reminderMinutes: Int? = null,
+        val point: Boolean = false,
     )
     /** [plan] is the position of the block in [plans]. */
     data class CompletionItem(val plan: Int, val date: LocalDate)
@@ -83,7 +85,7 @@ object FullBackup {
 
     fun fromCsv(csv: String): BackupData = BackupData(
         entries = Csv.parse(csv).map {
-            BackupData.EntryItem(it.start, it.end, it.category, it.project, it.note, it.description)
+            BackupData.EntryItem(it.start, it.end, it.category, it.project, it.note, it.description, it.end == it.start)
         },
     )
 
@@ -108,6 +110,7 @@ object FullBackup {
                     "project" to it.project,
                     "note" to it.note,
                     "description" to it.description,
+                    "point" to it.point,
                 )
             },
             "plans" to data.plans.map {
@@ -127,6 +130,7 @@ object FullBackup {
                     },
                     "days" to ((it.repeat as? RepeatRule.Weekly)?.days.orEmpty().map { day -> day.name }),
                     "reminderMinutes" to it.reminderMinutes,
+                    "point" to it.point,
                 )
             },
             "completions" to data.completions.map { mapOf("plan" to it.plan, "date" to it.date.toString()) },
@@ -182,6 +186,7 @@ object FullBackup {
                     project = it.str("project"),
                     note = it.str("note"),
                     description = it.str("description"),
+                    point = it["point"] == true,
                 )
             },
             plans = items("plans").mapNotNull {
@@ -206,6 +211,7 @@ object FullBackup {
                         else -> RepeatRule.Once
                     },
                     reminderMinutes = it.int("reminderMinutes")?.takeIf { minutes -> minutes >= 0 },
+                    point = it["point"] == true,
                 )
             },
             completions = items("completions").mapNotNull {
@@ -261,13 +267,14 @@ class BuildBackupUseCase @Inject constructor(
             entries = entries.sortedBy { it.start }.map {
                 BackupData.EntryItem(
                     it.start, it.end, categoryNames[it.categoryId].orEmpty(),
-                    projectNames[it.projectId].orEmpty(), it.note, it.description,
+                    projectNames[it.projectId].orEmpty(), it.note, it.description, it.point,
                 )
             },
             plans = plans.map {
                 BackupData.PlanItem(
                     categoryNames[it.categoryId].orEmpty(), projectNames[it.projectId].orEmpty(),
                     it.note, it.description, it.start, it.end, it.startDate, it.repeat, it.reminderMinutes,
+                    it.point,
                 )
             },
             completions = completions.mapNotNull { completion ->
@@ -350,6 +357,8 @@ class RestoreBackupUseCase @Inject constructor(
         var entriesAdded = 0
         var skipped = 0
         data.entries.forEach { item ->
+            // A record whose end is its start is a moment, not a stretch of time.
+            val point = item.point || item.end == item.start
             val end = item.end ?: item.start.plusSeconds(60)
             if (!seen.add(Triple(item.start, end, item.note))) {
                 skipped++
@@ -364,6 +373,7 @@ class RestoreBackupUseCase @Inject constructor(
                     start = item.start,
                     end = end,
                     description = item.description,
+                    point = point,
                 )
             )
             entriesAdded++
@@ -375,7 +385,7 @@ class RestoreBackupUseCase @Inject constructor(
         val wanted = data.plans.map {
             PlanBlock(
                 0, categoryId(it.category), projectId(it.category, it.project), it.note,
-                it.start, it.end, it.startDate, it.repeat, it.description, it.reminderMinutes,
+                it.start, it.end, it.startDate, it.repeat, it.description, it.reminderMinutes, it.point,
             )
         }
         wanted.forEach { block ->

@@ -216,3 +216,22 @@ fun TitleSuggestions(titles: List<String>, onPick: (String) -> Unit, modifier: M
         }
     }
 }
+
+/** The switch that turns a record or a block into a moment with no length. */
+@Composable
+fun NoDurationRow(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Row(
+        modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("No duration", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "A moment, like a call or a message.",
+                style = MaterialTheme.typography.bodySmall,
+                color = ZhamTheme.extra.slate,
+            )
+        }
+        com.zham.design.system.ZhamSwitch(checked = checked, onCheckedChange = onChange)
+    }
+}

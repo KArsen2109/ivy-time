@@ -37,6 +37,11 @@ data class TimeEntry(
     val start: Instant,
     val end: Instant?,
     val description: String = "",
+    /** A moment rather than a stretch of time (a call, a message): [end] equals [start]. */
+    val point: Boolean = false,
+    /** The planned block this record was made from by ticking it off, so ticking it back can remove it. */
+    val planId: Long? = null,
+    val planDate: LocalDate? = null,
 ) {
     val isRunning: Boolean get() = end == null
 

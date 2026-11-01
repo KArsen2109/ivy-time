@@ -68,9 +68,13 @@ class SaveEntryUseCase @Inject constructor(
         start: Instant,
         end: Instant,
         description: String = "",
+        point: Boolean = false,
     ): Either<TimeError, Unit> {
-        if (!end.isAfter(start)) return TimeError.EndNotAfterStart.left()
-        if (end.isAfter(clock.instant())) return TimeError.EndInTheFuture.left()
+        // A moment has no length, so its end is its start; only a stretch of time needs an end after the start.
+        if (!point && !end.isAfter(start)) return TimeError.EndNotAfterStart.left()
+        if ((if (point) start else end).isAfter(clock.instant())) return TimeError.EndInTheFuture.left()
+        // Editing a record made by ticking off a block must not cut its link to that block.
+        val origin = if (id != 0L) repository.findById(id) else null
         repository.save(
             TimeEntry(
                 id = id,
@@ -78,8 +82,11 @@ class SaveEntryUseCase @Inject constructor(
                 projectId = projectId,
                 note = note.trim(),
                 start = start,
-                end = end,
+                end = if (point) start else end,
                 description = description.trim(),
+                point = point,
+                planId = origin?.planId,
+                planDate = origin?.planDate,
             )
         )
         return Unit.right()

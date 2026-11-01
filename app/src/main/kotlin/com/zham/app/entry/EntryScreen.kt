@@ -1,5 +1,6 @@
 package com.zham.app.entry
 
+import com.zham.app.ui.NoDurationRow
 import com.zham.app.ui.TitleSuggestions
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
@@ -146,45 +147,49 @@ fun EntryUi(
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(12.dp))
+        NoDurationRow(state.point, onChange = { onEvent(EntryEvent.SetPoint(it)) })
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             FieldButton(
-                label = "Start",
+                label = if (state.point) "At" else "Start",
                 value = state.startLabel,
                 onClick = { startPickerVisible = true },
                 modifier = Modifier.weight(1f),
             )
-            FieldButton(
-                label = if (state.crossesMidnight) "End (next day)" else "End",
-                value = state.endLabel,
-                onClick = { endPickerVisible = true },
-                modifier = Modifier.weight(1f),
-            )
+            if (!state.point) {
+                FieldButton(
+                    label = if (state.crossesMidnight) "End (next day)" else "End",
+                    value = state.endLabel,
+                    onClick = { endPickerVisible = true },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
-        Text(
-            text = state.durationLabel,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 16.dp),
-        )
+        if (!state.point) {
+            Text(
+                text = state.durationLabel,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = Spacing.Gutter, vertical = 16.dp),
+            )
 
-        SectionLabel("Quick length")
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-        ) {
-            items(QUICK_MINUTES) { minutes ->
-                ChoiceChip(
-                    label = if (minutes >= 60) "${minutes / 60}h" else "${minutes}m",
-                    selected = false,
-                    color = MaterialTheme.colorScheme.primary,
-                    onClick = { onEvent(EntryEvent.SetDuration(minutes)) },
-                )
+            SectionLabel("Quick length")
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+            ) {
+                items(QUICK_MINUTES) { minutes ->
+                    ChoiceChip(
+                        label = if (minutes >= 60) "${minutes / 60}h" else "${minutes}m",
+                        selected = false,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = { onEvent(EntryEvent.SetDuration(minutes)) },
+                    )
+                }
             }
         }
 

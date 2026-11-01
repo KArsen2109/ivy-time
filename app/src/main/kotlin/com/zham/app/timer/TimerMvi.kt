@@ -180,7 +180,7 @@ class TimerViewModel @Inject constructor(
                             (entry.end?.let(formatters::time) ?: "now"),
                         entry.description.takeIf { it.isNotBlank() },
                     ).joinToString(" · "),
-                    duration = entry.duration(now).formatShort(),
+                    duration = if (entry.point) "moment" else entry.duration(now).formatShort(),
                     color = Color(category?.color ?: UNCATEGORISED),
                     running = entry.isRunning,
                 )

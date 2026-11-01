@@ -31,9 +31,15 @@ data class PlanBlock(
     val description: String = "",
     /** Minutes before the start to remind the user; null means no reminder, 0 means at the start. */
     val reminderMinutes: Int? = null,
+    /** A task at a moment with no length (call someone, send a message): [end] equals [start]. */
+    val point: Boolean = false,
 ) {
     val duration: Duration
-        get() = Duration.between(start, end).let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
+        get() = if (point) {
+            Duration.ZERO
+        } else {
+            Duration.between(start, end).let { if (it.isNegative || it.isZero) it.plusDays(1) else it }
+        }
 }
 
 /** Marks one dated occurrence of a block as dealt with. */

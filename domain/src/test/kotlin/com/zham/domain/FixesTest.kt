@@ -43,7 +43,7 @@ import kotlin.test.Test
 
 private val UTC = ZoneOffset.UTC
 
-private class Mem {
+internal class Mem {
     val entries = mutableListOf<TimeEntry>()
     val categories = mutableListOf<Category>()
     val projects = mutableListOf<Project>()

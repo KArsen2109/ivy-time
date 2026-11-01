@@ -69,6 +69,8 @@ data class PlanEditorState(
     val movedToNextDay: Boolean,
     /** Minutes before the start to remind; null for no reminder. */
     val reminderMinutes: Int?,
+    /** A moment with no length. */
+    val point: Boolean,
     /** Other blocks at the same time as this one, one line each; empty when nothing overlaps. */
     val conflicts: ImmutableList<String>,
     /** Titles used before in this category or project. */
@@ -84,6 +86,7 @@ sealed interface PlanEditorEvent {
     data class SetStart(val time: LocalTime) : PlanEditorEvent
     data class SetEnd(val time: LocalTime) : PlanEditorEvent
     data class SetLength(val minutes: Long) : PlanEditorEvent
+    data class SetPoint(val point: Boolean) : PlanEditorEvent
     data class SetReminder(val minutes: Int?) : PlanEditorEvent
     data class SetRepeat(val repeat: RepeatChoice) : PlanEditorEvent
     data class ToggleWeekday(val day: DayOfWeek) : PlanEditorEvent
@@ -121,6 +124,7 @@ class PlanEditorViewModel @Inject constructor(
     private val repeat = mutableStateOf(RepeatChoice.Once)
     private val weekdays = mutableStateOf(setOf(initialDate.dayOfWeek))
     private val reminder = mutableStateOf<Int?>(null)
+    private val point = mutableStateOf(false)
     private val error = mutableStateOf<String?>(null)
     private val closed = mutableStateOf(false)
     private var saving = false
@@ -137,6 +141,7 @@ class PlanEditorViewModel @Inject constructor(
                     note.value = plan.note
                     description.value = plan.description
                     reminder.value = plan.reminderMinutes
+                    point.value = plan.point
                     date.value = plan.startDate
                     start.value = plan.start
                     end.value = plan.end
@@ -167,15 +172,16 @@ class PlanEditorViewModel @Inject constructor(
         val formatters = TimeFormatters(clock.zone, use24Hours)
         val selected = categoryId.value
         val shownDate = effectiveDate()
-        val conflicts = remember(plans, categories, shownDate, start.value, end.value, repeat.value, weekdays.value, use24Hours) {
+        val conflicts = remember(plans, categories, shownDate, start.value, end.value, repeat.value, weekdays.value, use24Hours, point.value) {
             val candidate = PlanBlock(
-                planId, null, null, "", start.value, end.value, shownDate,
+                planId, null, null, "", start.value, if (point.value) start.value else end.value, shownDate,
                 when (repeat.value) {
                     RepeatChoice.Once -> RepeatRule.Once
                     RepeatChoice.Daily -> RepeatRule.Daily
                     RepeatChoice.Monthly -> RepeatRule.Monthly
                     RepeatChoice.Weekly -> RepeatRule.Weekly(weekdays.value)
                 },
+                point = point.value,
             )
             val names = categories.associate { it.id to it.name }
             planConflicts(candidate, plans, clock.zone).map { conflict ->
@@ -203,8 +209,8 @@ class PlanEditorViewModel @Inject constructor(
             dateLabel = formatters.shortDate(shownDate),
             startLabel = formatters.time(start.value),
             endLabel = formatters.time(end.value),
-            durationLabel = length().formatShort(),
-            crossesMidnight = !end.value.isAfter(start.value),
+            durationLabel = if (point.value) "–" else length().formatShort(),
+            crossesMidnight = !point.value && !end.value.isAfter(start.value),
             repeat = repeat.value,
             weekdays = weekdays.value,
             date = shownDate,
@@ -217,6 +223,7 @@ class PlanEditorViewModel @Inject constructor(
             marks = remember(entries, plans, clock.zone) { calendarMarks(entries, plans, clock.zone) },
             error = error.value,
             reminderMinutes = reminder.value,
+            point = point.value,
             conflicts = conflicts,
             titleSuggestions = remember(entries, plans, categoryId.value, projectId.value, note.value) {
                 titleSuggestions(entries, plans, categoryId.value, projectId.value, note.value).toImmutableList()
@@ -249,6 +256,7 @@ class PlanEditorViewModel @Inject constructor(
             }
             is PlanEditorEvent.SetEnd -> end.value = event.time
             is PlanEditorEvent.SetLength -> end.value = start.value.plusMinutes(event.minutes)
+            is PlanEditorEvent.SetPoint -> point.value = event.point
             is PlanEditorEvent.SetReminder -> reminder.value = event.minutes
             is PlanEditorEvent.SetRepeat -> {
                 repeat.value = event.repeat
@@ -301,6 +309,7 @@ class PlanEditorViewModel @Inject constructor(
                 end = end.value,
                 startDate = effectiveDate(),
                 reminderMinutes = reminder.value,
+                point = point.value,
                 repeat = when (repeat.value) {
                     RepeatChoice.Once -> RepeatRule.Once
                     RepeatChoice.Daily -> RepeatRule.Daily

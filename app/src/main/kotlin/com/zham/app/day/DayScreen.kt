@@ -2,6 +2,7 @@
 
 package com.zham.app.day
 
+import java.time.LocalTime
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -153,6 +154,18 @@ fun DayUi(
         )
     }
 
+    var earlySheet by remember { mutableStateOf<PlanSheet?>(null) }
+    earlySheet?.let { early ->
+        EarlyDoneDialog(
+            sheet = early,
+            onDismiss = { earlySheet = null },
+            onSave = { start, end ->
+                onEvent(DayEvent.CompletePlanEarly(early.planId, early.date, start, end))
+                earlySheet = null
+            },
+        )
+    }
+
     val sheet = state.sheet
     if (sheet != null) {
         ModalBottomSheet(
@@ -166,7 +179,13 @@ fun DayUi(
             PlanSheetContent(
                 sheet = sheet,
                 onStart = { onEvent(DayEvent.StartFromPlan(sheet.planId)) },
-                onDone = { onEvent(DayEvent.TogglePlanDone(sheet.planId, sheet.date, sheet.done)) },
+                onDone = {
+                    if (!sheet.done && sheet.startsInFuture && !sheet.point) {
+                        earlySheet = sheet
+                    } else {
+                        onEvent(DayEvent.TogglePlanDone(sheet.planId, sheet.date, sheet.done))
+                    }
+                },
                 onEdit = {
                     onEvent(DayEvent.CloseSheet)
                     onEditPlan(sheet.planId)
@@ -231,6 +250,15 @@ private fun Summary(
                 value = if (state.keptPercent > 0) "${state.keptPercent}%" else state.unplannedLabel,
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        // Like a balance: what is left of the day, and what of it is not spoken for.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatPair(if (state.isToday) "left today" else "in the day", state.leftLabel, MaterialTheme.colorScheme.onSurface)
+            StatPair("free after plans", state.freeLabel, MaterialTheme.colorScheme.onSurface)
         }
         Spacer(Modifier.height(12.dp))
         MeterBar(
@@ -346,12 +374,14 @@ private fun PlanSheetContent(
         }
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(
-                text = "Start now",
-                onClick = onStart,
-                icon = Icons.Rounded.PlayArrow,
-                modifier = Modifier.weight(1f),
-            )
+            if (!sheet.point) {
+                PrimaryButton(
+                    text = "Start now",
+                    onClick = onStart,
+                    icon = Icons.Rounded.PlayArrow,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             QuietButton(
                 text = if (sheet.done) "Done · undo" else "Mark done",
                 onClick = onDone,
@@ -370,5 +400,89 @@ private fun PlanSheetContent(
                 modifier = Modifier.weight(1f),
             )
         }
+    }
+}
+
+/** Asks when a block planned for later was really done, so the record carries the real times. */
+@Composable
+private fun EarlyDoneDialog(sheet: PlanSheet, onDismiss: () -> Unit, onSave: (LocalTime, LocalTime) -> Unit) {
+    val defaultStart = remember(sheet) {
+        // Assume it was done just now and took as long as planned, but never before midnight.
+        sheet.now.minusMinutes(sheet.plannedMinutes).let { if (it.isAfter(sheet.now)) LocalTime.MIDNIGHT else it }
+    }
+    var start by remember(sheet) { mutableStateOf(defaultStart) }
+    var end by remember(sheet) { mutableStateOf(sheet.now) }
+    var picking by remember { mutableStateOf<String?>(null) }
+    val formatter = remember(sheet.is24Hour) {
+        java.time.format.DateTimeFormatter.ofPattern(if (sheet.is24Hour) "HH:mm" else "h:mm a", java.util.Locale.ENGLISH)
+    }
+    val valid = start.isBefore(end)
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Done early") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "This was planned for ${sheet.timeRange}. Enter when you really did it; " +
+                        "those times are what get recorded.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    com.zham.design.system.FieldButton(
+                        label = "Started",
+                        value = formatter.format(start),
+                        onClick = { picking = "start" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    com.zham.design.system.FieldButton(
+                        label = "Finished",
+                        value = formatter.format(end),
+                        onClick = { picking = "end" },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (!valid) {
+                    Text(
+                        "It has to finish after it started.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(enabled = valid, onClick = { onSave(start, end) }) { Text("Save") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+
+    when (picking) {
+        "start" -> com.zham.design.system.TimeDialog(
+            title = "Started",
+            initial = start,
+            now = sheet.now,
+            is24Hour = sheet.is24Hour,
+            onDismiss = { picking = null },
+            onSet = {
+                start = it
+                picking = null
+            },
+            isAllowed = { !it.isAfter(sheet.now) },
+            blockedHint = "That time has not come yet today",
+        )
+        "end" -> com.zham.design.system.TimeDialog(
+            title = "Finished",
+            initial = end,
+            now = sheet.now,
+            is24Hour = sheet.is24Hour,
+            onDismiss = { picking = null },
+            onSet = {
+                end = it
+                picking = null
+            },
+            isAllowed = { !it.isAfter(sheet.now) },
+            blockedHint = "That time has not come yet today",
+        )
     }
 }
