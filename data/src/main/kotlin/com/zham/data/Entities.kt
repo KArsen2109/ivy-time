@@ -1,5 +1,14 @@
 package com.zham.data
 
+import com.zham.domain.model.TxType
+import com.zham.domain.model.Transaction
+import com.zham.domain.model.RateKind
+import com.zham.domain.model.PresetKind
+import com.zham.domain.model.Preset
+import com.zham.domain.model.MoneyCategory
+import com.zham.domain.model.Loan
+import com.zham.domain.model.AmortizationType
+import com.zham.domain.model.Account
 import com.zham.domain.model.Note
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -221,4 +230,108 @@ data class NoteEntity(
 
 fun Note.toEntity() = NoteEntity(
     id, title, body, categoryId, projectId, created.toEpochMilli(), updated.toEpochMilli(), pinned,
+)
+
+@Entity(tableName = "accounts")
+data class AccountEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val name: String,
+    val currency: String,
+    val color: Int,
+    val icon: String,
+    val initialMinor: Long,
+    val orderNum: Double,
+    val archived: Boolean,
+) {
+    fun toDomain() = Account(id, name, currency, color, icon, initialMinor, orderNum, archived)
+}
+
+fun Account.toEntity() = AccountEntity(id, name, currency, color, icon, initialMinor, orderNum, archived)
+
+@Entity(tableName = "money_categories")
+data class MoneyCategoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val name: String,
+    val color: Int,
+    val icon: String,
+    val orderNum: Double,
+) {
+    fun toDomain() = MoneyCategory(id, name, color, icon, orderNum)
+}
+
+fun MoneyCategory.toEntity() = MoneyCategoryEntity(id, name, color, icon, orderNum)
+
+@Entity(tableName = "transactions")
+data class TransactionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val type: String,
+    val amountMinor: Long,
+    val accountId: Long,
+    val toAccountId: Long?,
+    val toAmountMinor: Long?,
+    val categoryId: Long?,
+    val title: String,
+    val description: String,
+    val timeMillis: Long,
+    val projectId: Long?,
+) {
+    fun toDomain() = Transaction(
+        id, parseEnum(type, TxType.Expense), amountMinor, accountId, toAccountId, toAmountMinor,
+        categoryId, title, description, Instant.ofEpochMilli(timeMillis), projectId,
+    )
+}
+
+fun Transaction.toEntity() = TransactionEntity(
+    id, type.name, amountMinor, accountId, toAccountId, toAmountMinor, categoryId, title, description,
+    time.toEpochMilli(), projectId,
+)
+
+@Entity(tableName = "presets")
+data class PresetEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val kind: String,
+    val name: String,
+    val title: String,
+    val categoryId: Long?,
+    val projectId: Long?,
+    val accountId: Long?,
+    val amountMinor: Long,
+    val durationMinutes: Int,
+    val orderNum: Double,
+) {
+    fun toDomain() = Preset(
+        id, parseEnum(kind, PresetKind.Expense), name, title, categoryId, projectId, accountId,
+        amountMinor, durationMinutes, orderNum,
+    )
+}
+
+fun Preset.toEntity() = PresetEntity(
+    id, kind.name, name, title, categoryId, projectId, accountId, amountMinor, durationMinutes, orderNum,
+)
+
+@Entity(tableName = "loans")
+data class LoanEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long,
+    val name: String,
+    val currency: String,
+    val principalMinor: Long,
+    val ratePercent: Double,
+    val rateKind: String,
+    val termMonths: Int,
+    val type: String,
+    val firstPaymentEpochDay: Long,
+    val paidCount: Int,
+    val accountId: Long?,
+    val categoryId: Long?,
+) {
+    fun toDomain() = Loan(
+        id, name, currency, principalMinor, ratePercent, parseEnum(rateKind, RateKind.Nominal), termMonths,
+        parseEnum(type, AmortizationType.Annuity), LocalDate.ofEpochDay(firstPaymentEpochDay), paidCount,
+        accountId, categoryId,
+    )
+}
+
+fun Loan.toEntity() = LoanEntity(
+    id, name, currency, principalMinor, annualRatePercent, rateKind.name, termMonths, type.name,
+    firstPaymentDate.toEpochDay(), paidCount, accountId, categoryId,
 )

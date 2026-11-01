@@ -87,8 +87,13 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
         NoteEntity::class,
+        AccountEntity::class,
+        MoneyCategoryEntity::class,
+        TransactionEntity::class,
+        PresetEntity::class,
+        LoanEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -98,6 +103,7 @@ abstract class ZhamDatabase : RoomDatabase() {
     abstract fun planDao(): PlanDao
     abstract fun goalDao(): GoalDao
     abstract fun noteDao(): NoteDao
+    abstract fun financeDao(): FinanceDao
 }
 
 @Dao
@@ -210,6 +216,115 @@ val MIGRATION_9_10 = object : Migration(9, 10) {
             "CREATE TABLE IF NOT EXISTS `notes` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                 "`title` TEXT NOT NULL, `body` TEXT NOT NULL, `categoryId` INTEGER, `projectId` INTEGER, " +
                 "`createdMillis` INTEGER NOT NULL, `updatedMillis` INTEGER NOT NULL, `pinned` INTEGER NOT NULL)"
+        )
+    }
+}
+
+@Dao
+interface FinanceDao {
+    @Query("SELECT * FROM accounts ORDER BY orderNum, name COLLATE NOCASE")
+    fun observeAccounts(): Flow<List<AccountEntity>>
+
+    @Upsert
+    suspend fun saveAccount(account: AccountEntity): Long
+
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun deleteAccount(id: Long)
+
+    @Query("DELETE FROM transactions WHERE accountId = :accountId OR toAccountId = :accountId")
+    suspend fun deleteTransactionsOfAccount(accountId: Long)
+
+    @Query("UPDATE presets SET accountId = NULL WHERE accountId = :accountId")
+    suspend fun detachPresetsFromAccount(accountId: Long)
+
+    @Query("UPDATE loans SET accountId = NULL WHERE accountId = :accountId")
+    suspend fun detachLoansFromAccount(accountId: Long)
+
+    @Query("SELECT * FROM money_categories ORDER BY orderNum, name COLLATE NOCASE")
+    fun observeCategories(): Flow<List<MoneyCategoryEntity>>
+
+    @Upsert
+    suspend fun saveCategory(category: MoneyCategoryEntity): Long
+
+    @Query("DELETE FROM money_categories WHERE id = :id")
+    suspend fun deleteCategory(id: Long)
+
+    @Query("UPDATE transactions SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachTransactionsFromCategory(categoryId: Long)
+
+    @Query("UPDATE presets SET categoryId = NULL WHERE categoryId = :categoryId AND kind != 'Activity'")
+    suspend fun detachPresetsFromCategory(categoryId: Long)
+
+    @Query("UPDATE loans SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun detachLoansFromCategory(categoryId: Long)
+
+    @Query("SELECT * FROM transactions ORDER BY timeMillis DESC")
+    fun observeTransactions(): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun findTransaction(id: Long): TransactionEntity?
+
+    @Upsert
+    suspend fun saveTransaction(transaction: TransactionEntity): Long
+
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteTransaction(id: Long)
+
+    @Query("UPDATE transactions SET projectId = NULL WHERE projectId = :projectId")
+    suspend fun detachTransactionsFromProject(projectId: Long)
+
+    @Query("SELECT * FROM presets ORDER BY orderNum, name COLLATE NOCASE")
+    fun observePresets(): Flow<List<PresetEntity>>
+
+    @Query("SELECT * FROM presets WHERE id = :id")
+    suspend fun findPreset(id: Long): PresetEntity?
+
+    @Upsert
+    suspend fun savePreset(preset: PresetEntity): Long
+
+    @Query("DELETE FROM presets WHERE id = :id")
+    suspend fun deletePreset(id: Long)
+
+    @Query("SELECT * FROM loans ORDER BY name COLLATE NOCASE")
+    fun observeLoans(): Flow<List<LoanEntity>>
+
+    @Query("SELECT * FROM loans WHERE id = :id")
+    suspend fun findLoan(id: Long): LoanEntity?
+
+    @Upsert
+    suspend fun saveLoan(loan: LoanEntity): Long
+
+    @Query("DELETE FROM loans WHERE id = :id")
+    suspend fun deleteLoan(id: Long)
+}
+
+/** 10 to 11 adds money: accounts, money categories, transactions, ready-made entries and loans. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `accounts` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`currency` TEXT NOT NULL, `color` INTEGER NOT NULL, `icon` TEXT NOT NULL, `initialMinor` INTEGER NOT NULL, " +
+                "`orderNum` REAL NOT NULL, `archived` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `money_categories` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`color` INTEGER NOT NULL, `icon` TEXT NOT NULL, `orderNum` REAL NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `transactions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, " +
+                "`amountMinor` INTEGER NOT NULL, `accountId` INTEGER NOT NULL, `toAccountId` INTEGER, `toAmountMinor` INTEGER, " +
+                "`categoryId` INTEGER, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `timeMillis` INTEGER NOT NULL, `projectId` INTEGER)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `presets` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, `title` TEXT NOT NULL, `categoryId` INTEGER, `projectId` INTEGER, `accountId` INTEGER, " +
+                "`amountMinor` INTEGER NOT NULL, `durationMinutes` INTEGER NOT NULL, `orderNum` REAL NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `loans` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, " +
+                "`currency` TEXT NOT NULL, `principalMinor` INTEGER NOT NULL, `ratePercent` REAL NOT NULL, `rateKind` TEXT NOT NULL, " +
+                "`termMonths` INTEGER NOT NULL, `type` TEXT NOT NULL, `firstPaymentEpochDay` INTEGER NOT NULL, " +
+                "`paidCount` INTEGER NOT NULL, `accountId` INTEGER, `categoryId` INTEGER)"
         )
     }
 }
