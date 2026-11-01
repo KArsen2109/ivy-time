@@ -14,8 +14,8 @@ android {
         applicationId = "com.zham.app"
         minSdk = libs.versions.min.sdk.get().toInt()
         targetSdk = libs.versions.compile.sdk.get().toInt()
-        versionCode = 17
-        versionName = "1.1.0-dev4"
+        versionCode = 18
+        versionName = "1.1.0-dev5"
     }
 
     // One fixed debug key, kept in the repo, so every build is signed alike and a new APK can be

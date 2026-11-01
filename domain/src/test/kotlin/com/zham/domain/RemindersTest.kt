@@ -22,7 +22,7 @@ private fun plan(
     date: LocalDate = LocalDate.of(2026, 1, 10),
     repeat: RepeatRule = RepeatRule.Once,
     reminder: Int? = 15,
-) = PlanBlock(id, null, null, "x", start, start.plusHours(1), date, repeat, "", reminder)
+) = PlanBlock(id, null, null, "x", start, start.plusHours(1), date, repeat, "", listOfNotNull(reminder))
 
 class RemindersTest {
     @Test
@@ -71,5 +71,27 @@ class RemindersTest {
             listOf(plan(id = 1), plan(id = 2, start = LocalTime.of(9, 0))), emptySet(), at(10, 0), at(11, 0), Z,
         )
         list.map { it.occurrence.plan.id } shouldBe listOf(2L, 1L)
+    }
+
+    @Test
+    fun `several reminders on one block each fire, earliest lead first by time`() {
+        val block = plan(reminder = null).copy(reminders = listOf(30, 10))
+        val list = remindersBetween(listOf(block), emptySet(), at(10, 0), at(11, 0), Z)
+        list.map { it.triggerAt } shouldBe listOf(at(10, 14, 0), at(10, 14, 20))
+        list.map { it.colorIndex } shouldBe listOf(1, 0) // sorted leads 10 -> 0, 30 -> 1
+    }
+
+    @Test
+    fun `a reminder before the end fires before the planned end`() {
+        val block = plan(reminder = null).copy(endReminder = 10)
+        val next = nextReminder(listOf(block), emptySet(), at(10, 0), Z)!!
+        next.triggerAt shouldBe at(10, 15, 20) // the block runs 14:30-15:30
+        next.kind shouldBe com.zham.domain.usecase.ReminderKind.BeforeEnd
+    }
+
+    @Test
+    fun `a task without length has no end reminder`() {
+        val block = plan(reminder = null).copy(endReminder = 10, point = true)
+        nextReminder(listOf(block), emptySet(), at(10, 0), Z) shouldBe null
     }
 }

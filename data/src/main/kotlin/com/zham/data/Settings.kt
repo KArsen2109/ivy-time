@@ -19,6 +19,8 @@ data class AppSettings(
     val weekStart: DayOfWeek,
     val use24Hours: Boolean,
     val onboardingDone: Boolean,
+    /** Minutes before a block starts at which a new block is reminded by default; -1 for none. */
+    val defaultReminder: Int,
 )
 
 private val Context.dataStore by preferencesDataStore(name = "zham-settings")
@@ -30,6 +32,7 @@ class SettingsStore(
     private val weekStartKey = intPreferencesKey("week_start")
     private val use24HoursKey = booleanPreferencesKey("use_24_hours")
     private val onboardingKey = booleanPreferencesKey("onboarding_done")
+    private val defaultReminderKey = intPreferencesKey("default_reminder")
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
@@ -38,6 +41,7 @@ class SettingsStore(
             weekStart = DayOfWeek.of(prefs[weekStartKey] ?: DayOfWeek.MONDAY.value),
             use24Hours = prefs[use24HoursKey] ?: true,
             onboardingDone = prefs[onboardingKey] ?: false,
+            defaultReminder = prefs[defaultReminderKey] ?: 10,
         )
     }
 
@@ -60,6 +64,10 @@ class SettingsStore(
 
     suspend fun setLastReminderMillis(millis: Long) {
         context.dataStore.edit { it[lastReminderKey] = millis }
+    }
+
+    suspend fun setDefaultReminder(minutes: Int) {
+        context.dataStore.edit { it[defaultReminderKey] = minutes }
     }
 
     suspend fun setOnboardingDone(done: Boolean) {

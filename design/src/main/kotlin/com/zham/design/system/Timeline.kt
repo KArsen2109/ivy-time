@@ -1,5 +1,8 @@
 package com.zham.design.system
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +46,8 @@ data class TimelineBlock(
     val running: Boolean = false,
     /** A moment with no length, drawn as a short marker. */
     val point: Boolean = false,
+    /** One dot per reminder, in the reminder's colour, drawn in the corner of a planned block. */
+    val markers: List<Color> = emptyList(),
 )
 
 const val MINUTES_PER_DAY: Int = 24 * 60
@@ -204,6 +209,16 @@ private fun BlockView(block: TimelineBlock, planned: Boolean, onClick: () -> Uni
             .clickable(onClick = onClick)
             .padding(horizontal = 7.dp, vertical = 3.dp)
     ) {
+        if (planned && block.markers.isNotEmpty()) {
+            Row(
+                Modifier.align(Alignment.TopEnd).padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                block.markers.forEach { color ->
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+                }
+            }
+        }
         Column {
             Text(
                 text = if (block.point) "● " + block.label else block.label,

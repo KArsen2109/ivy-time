@@ -32,7 +32,9 @@ class ReminderReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             try {
                 // A reminder that cannot be shown must never take the app down with it.
-                runCatching { scheduler.sync() }
+                runCatching {
+                    if (intent.action == ACTION_TEST) scheduler.showTest() else scheduler.sync()
+                }
             } finally {
                 pending.finish()
             }
@@ -41,5 +43,6 @@ class ReminderReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION_REMIND = "com.zham.app.REMIND"
+        const val ACTION_TEST = "com.zham.app.TEST_REMINDER"
     }
 }

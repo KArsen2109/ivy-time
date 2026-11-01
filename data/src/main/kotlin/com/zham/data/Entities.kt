@@ -135,8 +135,12 @@ data class PlanBlockEntity(
     /** "ONCE", "DAILY", "MONTHLY" or "WEEKLY:MONDAY,WEDNESDAY". */
     val repeat: String,
     val description: String = "",
+    /** The single reminder of earlier versions. Kept only because the column is still in the table. */
     val reminderMinutes: Int? = null,
     val point: Boolean = false,
+    /** Minutes before the start, comma separated: "10,30". */
+    val reminders: String = "",
+    val endReminder: Int? = null,
 ) {
     fun toDomain() = PlanBlock(
         id = id,
@@ -148,8 +152,9 @@ data class PlanBlockEntity(
         startDate = LocalDate.ofEpochDay(startEpochDay),
         repeat = parseRepeat(repeat),
         description = description,
-        reminderMinutes = reminderMinutes,
+        reminders = reminders.split(",").mapNotNull { it.trim().toIntOrNull() },
         point = point,
+        endReminder = endReminder,
     )
 }
 
@@ -171,8 +176,10 @@ fun PlanBlock.toEntity() = PlanBlockEntity(
     startEpochDay = startDate.toEpochDay(),
     repeat = writeRepeat(repeat),
     description = description,
-    reminderMinutes = reminderMinutes,
+    reminderMinutes = null,
     point = point,
+    reminders = reminders.joinToString(","),
+    endReminder = endReminder,
 )
 
 private fun writeRepeat(rule: RepeatRule): String = when (rule) {

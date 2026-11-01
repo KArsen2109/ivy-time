@@ -1,5 +1,8 @@
 package com.zham.app.reminders
 
+import androidx.compose.ui.graphics.toArgb
+import com.zham.domain.usecase.ReminderKind
+import com.zham.design.system.ReminderColors
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -70,12 +73,14 @@ class ReminderScheduler @Inject constructor(
 
     private fun show(reminder: Reminder, now: Instant, formatters: TimeFormatters, category: String?) {
         val plan = reminder.occurrence.plan
-        val minutes = Duration.between(now, reminder.occurrence.startsAt).toMinutes()
+        val toEnd = reminder.kind == ReminderKind.BeforeEnd
+        val minutes = Duration.between(now, if (toEnd) reminder.occurrence.endsAt else reminder.occurrence.startsAt).toMinutes()
+        val verb = if (toEnd) "ends" else "starts"
         val whenText = when {
-            minutes < 0 -> "started ${-minutes} min ago"
-            minutes == 0L -> "starts now"
-            minutes < 60 -> "starts in $minutes min"
-            else -> "starts in ${minutes / 60} h" + if (minutes % 60 > 0) " ${minutes % 60} min" else ""
+            minutes < 0 -> "$verb ${-minutes} min ago".replace("starts", "started").replace("ends", "ended")
+            minutes == 0L -> "$verb now"
+            minutes < 60 -> "$verb in $minutes min"
+            else -> "$verb in ${minutes / 60} h" + if (minutes % 60 > 0) " ${minutes % 60} min" else ""
         }
         val open = PendingIntent.getActivity(
             context, 0,
@@ -86,15 +91,47 @@ class ReminderScheduler @Inject constructor(
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(plan.note.ifBlank { category ?: "Planned block" })
-            .setContentText(formatters.time(plan.start) + " · " + whenText)
+            .setContentText(
+                (if (toEnd) formatters.time(plan.end) else formatters.time(plan.start)) + " · " + whenText
+            )
+            // The colour the reminder has in the editor and on the timeline.
+            .setColor(ReminderColors[reminder.colorIndex % ReminderColors.size].toArgb())
             .setCategory(Notification.CATEGORY_REMINDER)
             .setContentIntent(open)
             .setAutoCancel(true)
             .build()
         val manager = context.getSystemService(NotificationManager::class.java)
         // Without the notification permission the system simply drops this.
-        val id = (plan.id * 40_000 + reminder.occurrence.date.toEpochDay()).hashCode()
+        val id = listOf(plan.id, reminder.occurrence.date.toEpochDay(), reminder.kind, reminder.lead).hashCode()
         runCatching { manager.notify(id, notification) }
+    }
+
+    /** Sets an alarm for a few seconds from now that shows a sample notification, to check the whole path. */
+    fun scheduleTest(secondsFromNow: Long = 20) {
+        createChannel()
+        val alarms = context.getSystemService(AlarmManager::class.java)
+        val intent = PendingIntent.getBroadcast(
+            context, 2, Intent(context, ReminderReceiver::class.java).setAction(ReminderReceiver.ACTION_TEST),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val at = System.currentTimeMillis() + secondsFromNow * 1000
+        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        runCatching {
+            if (exact) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+            else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, intent)
+        }
+    }
+
+    fun showTest() {
+        createChannel()
+        val notification = Notification.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Test reminder")
+            .setContentText("If you can read this, reminders reach this phone.")
+            .setColor(ReminderColors[0].toArgb())
+            .setAutoCancel(true)
+            .build()
+        runCatching { context.getSystemService(NotificationManager::class.java).notify(TEST_ID, notification) }
     }
 
     private fun createChannel() {
@@ -134,5 +171,6 @@ class ReminderScheduler @Inject constructor(
 
     private companion object {
         const val CHANNEL = "plan-reminders"
+        const val TEST_ID = 7001
     }
 }

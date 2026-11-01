@@ -29,10 +29,12 @@ data class PlanBlock(
     val startDate: LocalDate,
     val repeat: RepeatRule,
     val description: String = "",
-    /** Minutes before the start to remind the user; null means no reminder, 0 means at the start. */
-    val reminderMinutes: Int? = null,
+    /** Minutes before the start at which to remind the user, one entry per reminder; 0 means at the start. */
+    val reminders: List<Int> = emptyList(),
     /** A task at a moment with no length (call someone, send a message): [end] equals [start]. */
     val point: Boolean = false,
+    /** Minutes before the planned end to remind the user, to keep an eye on the time spent. */
+    val endReminder: Int? = null,
 ) {
     val duration: Duration
         get() = if (point) {

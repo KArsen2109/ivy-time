@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import com.zham.design.system.ReminderColors
 import com.zham.app.ui.NoDurationRow
 import com.zham.app.ui.TitleSuggestions
 import java.util.Locale
@@ -73,6 +74,7 @@ import java.time.DayOfWeek
 
 /** Minutes before the start, as offered in the reminder row. */
 private val REMINDER_CHOICES = listOf(0, 5, 10, 15, 30, 60, 120, 1440)
+private val END_REMINDER_CHOICES = listOf(5, 10, 15, 30)
 
 private fun reminderLabel(minutes: Int): String = when {
     minutes == 0 -> "At start"
@@ -341,7 +343,7 @@ fun PlanEditorUi(
             )
         }
 
-        SectionLabel("Reminder")
+        SectionLabel("Reminders")
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -350,18 +352,20 @@ fun PlanEditorUi(
             item {
                 ChoiceChip(
                     label = "Off",
-                    selected = state.reminderMinutes == null,
+                    selected = state.reminders.isEmpty() && state.endReminder == null,
                     color = MaterialTheme.colorScheme.primary,
-                    onClick = { onEvent(PlanEditorEvent.SetReminder(null)) },
+                    onClick = { onEvent(PlanEditorEvent.ClearReminders) },
                 )
             }
             items(REMINDER_CHOICES) { minutes ->
+                val index = state.reminders.indexOf(minutes)
                 ChoiceChip(
                     label = reminderLabel(minutes),
-                    selected = state.reminderMinutes == minutes,
-                    color = MaterialTheme.colorScheme.primary,
+                    selected = index >= 0,
+                    // Each chosen reminder wears the colour it has on the day's timeline and in its notification.
+                    color = if (index >= 0) ReminderColors[index % ReminderColors.size] else MaterialTheme.colorScheme.primary,
                     onClick = {
-                        onEvent(PlanEditorEvent.SetReminder(minutes))
+                        onEvent(PlanEditorEvent.ToggleReminder(minutes))
                         if (Build.VERSION.SDK_INT >= 33 &&
                             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
                             PackageManager.PERMISSION_GRANTED
@@ -372,7 +376,32 @@ fun PlanEditorUi(
                 )
             }
         }
-        if (state.reminderMinutes != null && notificationsBlocked) {
+        if (!state.point) {
+            SectionLabel("Before it ends")
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = Spacing.Gutter),
+            ) {
+                item {
+                    ChoiceChip(
+                        label = "Off",
+                        selected = state.endReminder == null,
+                        color = MaterialTheme.colorScheme.primary,
+                        onClick = { onEvent(PlanEditorEvent.SetEndReminder(null)) },
+                    )
+                }
+                items(END_REMINDER_CHOICES) { minutes ->
+                    ChoiceChip(
+                        label = "$minutes min before",
+                        selected = state.endReminder == minutes,
+                        color = ReminderColors[state.reminders.size % ReminderColors.size],
+                        onClick = { onEvent(PlanEditorEvent.SetEndReminder(minutes)) },
+                    )
+                }
+            }
+        }
+        if ((state.reminders.isNotEmpty() || state.endReminder != null) && notificationsBlocked) {
             Text(
                 text = "Zham is not allowed to show notifications. Turn them on in the phone's settings.",
                 style = MaterialTheme.typography.bodySmall,
@@ -381,7 +410,7 @@ fun PlanEditorUi(
             )
         }
 
-        if (state.reminderMinutes != null && !exactAllowed) {
+        if ((state.reminders.isNotEmpty() || state.endReminder != null) && !exactAllowed) {
             Text(
                 text = "Without exact timing Android may deliver reminders a few minutes late.",
                 style = MaterialTheme.typography.bodySmall,

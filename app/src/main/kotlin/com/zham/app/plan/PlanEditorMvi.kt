@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import kotlinx.coroutines.flow.first
 import com.zham.domain.usecase.titleSuggestions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -67,8 +68,10 @@ data class PlanEditorState(
     val error: String?,
     /** True when the chosen time has passed today, so the new block lands on the next day. */
     val movedToNextDay: Boolean,
-    /** Minutes before the start to remind; null for no reminder. */
-    val reminderMinutes: Int?,
+    /** Minutes before the start at which to remind, smallest first. */
+    val reminders: List<Int>,
+    /** Minutes before the planned end at which to remind, or null. */
+    val endReminder: Int?,
     /** A moment with no length. */
     val point: Boolean,
     /** Other blocks at the same time as this one, one line each; empty when nothing overlaps. */
@@ -87,7 +90,9 @@ sealed interface PlanEditorEvent {
     data class SetEnd(val time: LocalTime) : PlanEditorEvent
     data class SetLength(val minutes: Long) : PlanEditorEvent
     data class SetPoint(val point: Boolean) : PlanEditorEvent
-    data class SetReminder(val minutes: Int?) : PlanEditorEvent
+    data class ToggleReminder(val minutes: Int) : PlanEditorEvent
+    data object ClearReminders : PlanEditorEvent
+    data class SetEndReminder(val minutes: Int?) : PlanEditorEvent
     data class SetRepeat(val repeat: RepeatChoice) : PlanEditorEvent
     data class ToggleWeekday(val day: DayOfWeek) : PlanEditorEvent
     data object Save : PlanEditorEvent
@@ -123,7 +128,9 @@ class PlanEditorViewModel @Inject constructor(
     private val end = mutableStateOf(LocalTime.ofSecondOfDay((startMinutes + 60) * 60L % 86400))
     private val repeat = mutableStateOf(RepeatChoice.Once)
     private val weekdays = mutableStateOf(setOf(initialDate.dayOfWeek))
-    private val reminder = mutableStateOf<Int?>(null)
+    private val reminders = mutableStateOf<List<Int>>(emptyList())
+    private val endReminder = mutableStateOf<Int?>(null)
+    private var remindersTouched = false
     private val point = mutableStateOf(false)
     private val error = mutableStateOf<String?>(null)
     private val closed = mutableStateOf(false)
@@ -133,6 +140,13 @@ class PlanEditorViewModel @Inject constructor(
     val finished: Boolean get() = closed.value
 
     init {
+        if (planId == 0L) {
+            // A new block starts with the reminder chosen in the settings, unless the user got there first.
+            viewModelScope.launch {
+                val default = settingsStore.settings.first().defaultReminder
+                if (!remindersTouched && default >= 0) reminders.value = listOf(default)
+            }
+        }
         if (planId != 0L) {
             viewModelScope.launch {
                 planRepository.findById(planId)?.let { plan ->
@@ -140,7 +154,9 @@ class PlanEditorViewModel @Inject constructor(
                     projectId.value = plan.projectId
                     note.value = plan.note
                     description.value = plan.description
-                    reminder.value = plan.reminderMinutes
+                    reminders.value = plan.reminders
+                    endReminder.value = plan.endReminder
+                    remindersTouched = true
                     point.value = plan.point
                     date.value = plan.startDate
                     start.value = plan.start
@@ -222,7 +238,8 @@ class PlanEditorViewModel @Inject constructor(
             weekStart = settings?.weekStart ?: DayOfWeek.MONDAY,
             marks = remember(entries, plans, clock.zone) { calendarMarks(entries, plans, clock.zone) },
             error = error.value,
-            reminderMinutes = reminder.value,
+            reminders = reminders.value,
+            endReminder = endReminder.value,
             point = point.value,
             conflicts = conflicts,
             titleSuggestions = remember(entries, plans, categoryId.value, projectId.value, note.value) {
@@ -257,7 +274,20 @@ class PlanEditorViewModel @Inject constructor(
             is PlanEditorEvent.SetEnd -> end.value = event.time
             is PlanEditorEvent.SetLength -> end.value = start.value.plusMinutes(event.minutes)
             is PlanEditorEvent.SetPoint -> point.value = event.point
-            is PlanEditorEvent.SetReminder -> reminder.value = event.minutes
+            is PlanEditorEvent.ToggleReminder -> {
+                remindersTouched = true
+                reminders.value = (if (event.minutes in reminders.value) reminders.value - event.minutes
+                    else reminders.value + event.minutes).sorted()
+            }
+            PlanEditorEvent.ClearReminders -> {
+                remindersTouched = true
+                reminders.value = emptyList()
+                endReminder.value = null
+            }
+            is PlanEditorEvent.SetEndReminder -> {
+                remindersTouched = true
+                endReminder.value = event.minutes
+            }
             is PlanEditorEvent.SetRepeat -> {
                 repeat.value = event.repeat
                 // Until the user picks days, a weekly block repeats on the day it starts.
@@ -308,7 +338,8 @@ class PlanEditorViewModel @Inject constructor(
                 start = start.value,
                 end = end.value,
                 startDate = effectiveDate(),
-                reminderMinutes = reminder.value,
+                reminders = reminders.value,
+                endReminder = endReminder.value.takeIf { !point.value },
                 point = point.value,
                 repeat = when (repeat.value) {
                     RepeatChoice.Once -> RepeatRule.Once

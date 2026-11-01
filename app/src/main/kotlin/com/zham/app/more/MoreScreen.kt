@@ -1,5 +1,9 @@
 package com.zham.app.more
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import android.net.Uri
@@ -211,6 +215,9 @@ fun MoreUi(
                 }
             }
 
+            SectionLabel("Reminders")
+            ReminderSettings(state, onEvent)
+
             SectionLabel("Your data")
             ZhamCard(Modifier.padding(horizontal = Spacing.Gutter)) {
                 SettingRow(
@@ -288,3 +295,101 @@ private suspend fun readText(context: Context, uri: Uri): String? = withContext(
 
 private fun versionName(context: Context): String =
     runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
+
+private val DEFAULT_REMINDER_CHOICES = listOf(-1, 0, 5, 10, 15, 30, 60)
+
+private fun reminderChoiceLabel(minutes: Int): String = when (minutes) {
+    -1 -> "Off"
+    0 -> "At start"
+    60 -> "1 h before"
+    else -> "$minutes min before"
+}
+
+/** The default lead time, whether the phone will actually deliver reminders, and a way to try one. */
+@Composable
+private fun ReminderSettings(state: MoreState, onEvent: (MoreEvent) -> Unit) {
+    val context = LocalContext.current
+    // The phone's settings are changed outside the app, so the status is read again on every return.
+    var refresh by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refresh++
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    val notificationsOn = remember(refresh) {
+        context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()
+    }
+    val exactOn = remember(refresh) {
+        android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+            context.getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()
+    }
+    val batteryFree = remember(refresh) {
+        context.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+    }
+    fun open(intent: android.content.Intent) {
+        // A few phone makers leave a settings page out, so a failed jump must not crash.
+        runCatching { context.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    }
+
+    ZhamCard(Modifier.padding(horizontal = Spacing.Gutter)) {
+        Text("Default reminder for a new block", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "You can change it for any block when you plan it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = ZhamTheme.extra.slate,
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(DEFAULT_REMINDER_CHOICES) { minutes ->
+                com.zham.design.system.ChoiceChip(
+                    label = reminderChoiceLabel(minutes),
+                    selected = state.defaultReminder == minutes,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = { onEvent(MoreEvent.SetDefaultReminder(minutes)) },
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        SettingRow(
+            title = "Notifications",
+            subtitle = if (notificationsOn) "Allowed" else "Blocked. Tap to allow them.",
+            onClick = {
+                open(
+                    android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                )
+            },
+            horizontalPadding = 0.dp,
+        )
+        SettingRow(
+            title = "Exact timing",
+            subtitle = if (exactOn) "Allowed" else "Not allowed, so reminders may be a few minutes late. Tap to allow.",
+            onClick = {
+                open(
+                    android.content.Intent(
+                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        android.net.Uri.parse("package:" + context.packageName),
+                    )
+                )
+            },
+            horizontalPadding = 0.dp,
+        )
+        SettingRow(
+            title = "Battery",
+            subtitle = if (batteryFree) "Not restricted" else "May be restricted. Set Zham to unrestricted if reminders come late.",
+            onClick = {
+                open(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            },
+            horizontalPadding = 0.dp,
+        )
+        SettingRow(
+            title = "Send a test reminder",
+            subtitle = "Arrives in about 20 seconds",
+            onClick = { onEvent(MoreEvent.TestReminder) },
+            horizontalPadding = 0.dp,
+        )
+    }
+}

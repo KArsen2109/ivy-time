@@ -46,6 +46,7 @@ data class MoreState(
     val theme: ThemeMode,
     val weekStart: DayOfWeek,
     val use24Hours: Boolean,
+    val defaultReminder: Int,
     val recordCount: Int,
     val message: String?,
 )
@@ -54,6 +55,8 @@ sealed interface MoreEvent {
     data class SetTheme(val theme: ThemeMode) : MoreEvent
     data class SetWeekStart(val day: DayOfWeek) : MoreEvent
     data class SetUse24Hours(val use24Hours: Boolean) : MoreEvent
+    data class SetDefaultReminder(val minutes: Int) : MoreEvent
+    data object TestReminder : MoreEvent
     data class ImportCsv(val content: String) : MoreEvent
     data class ExportDone(val success: Boolean) : MoreEvent
     data object ImportUnreadable : MoreEvent
@@ -69,6 +72,7 @@ class MoreViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val buildBackup: BuildBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
+    private val reminderScheduler: com.zham.app.reminders.ReminderScheduler,
     private val clock: Clock,
 ) : ComposeViewModel<MoreState, MoreEvent>() {
 
@@ -104,6 +108,7 @@ class MoreViewModel @Inject constructor(
             theme = settings?.theme ?: ThemeMode.System,
             weekStart = weekStart,
             use24Hours = settings?.use24Hours ?: true,
+            defaultReminder = settings?.defaultReminder ?: 10,
             recordCount = entries.size,
             message = message.value,
         )
@@ -117,6 +122,13 @@ class MoreViewModel @Inject constructor(
             }
             is MoreEvent.SetUse24Hours -> viewModelScope.launch {
                 settingsStore.setUse24Hours(event.use24Hours)
+            }
+            is MoreEvent.SetDefaultReminder -> viewModelScope.launch {
+                settingsStore.setDefaultReminder(event.minutes)
+            }
+            MoreEvent.TestReminder -> {
+                reminderScheduler.scheduleTest()
+                message.value = "A test reminder will arrive in about 20 seconds. Lock the phone to test it properly."
             }
             is MoreEvent.ImportCsv -> importCsv(event.content)
             is MoreEvent.ExportDone -> message.value =

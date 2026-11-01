@@ -153,3 +153,16 @@ data class ZhamExtraColors(
     val planFill: Color,
     val raised: Color,
 )
+
+/**
+ * Colours that tell a block's reminders apart: the first reminder takes the first colour, and so on.
+ * They stay clear of the amber that belongs to the present moment.
+ */
+val ReminderColors: List<Color> = listOf(
+    Color(0xFF5B4BFF), // violet
+    Color(0xFF12B886), // jade
+    Color(0xFFF2537A), // rose
+    Color(0xFF2E9BFF), // azure
+    Color(0xFFA05BFF), // grape
+    Color(0xFF2FBFC9), // teal
+)

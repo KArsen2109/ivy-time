@@ -1,5 +1,7 @@
 package com.zham.app.day
 
+import com.zham.domain.usecase.reminderSlots
+import com.zham.design.system.ReminderColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -232,6 +234,7 @@ class DayViewModel @Inject constructor(
             color = Color(category?.color ?: UNCATEGORISED),
             done = done,
             point = plan.point,
+            markers = plan.reminderSlots().map { ReminderColors[it.third % ReminderColors.size] },
         )
     }
 

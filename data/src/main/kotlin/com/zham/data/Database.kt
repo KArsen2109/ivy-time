@@ -87,7 +87,7 @@ interface GoalDao {
         PlanCompletionEntity::class,
         GoalEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class ZhamDatabase : RoomDatabase() {
@@ -168,5 +168,14 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         db.execSQL("ALTER TABLE time_entries ADD COLUMN planId INTEGER")
         db.execSQL("ALTER TABLE time_entries ADD COLUMN planEpochDay INTEGER")
         db.execSQL("ALTER TABLE plan_blocks ADD COLUMN point INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** 8 to 9 lets a block have several reminders and one before its end; the old single one is carried over. */
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE plan_blocks ADD COLUMN reminders TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE plan_blocks ADD COLUMN endReminder INTEGER")
+        db.execSQL("UPDATE plan_blocks SET reminders = CAST(reminderMinutes AS TEXT) WHERE reminderMinutes IS NOT NULL")
     }
 }

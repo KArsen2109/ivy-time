@@ -60,8 +60,9 @@ data class BackupData(
         val end: LocalTime,
         val startDate: LocalDate,
         val repeat: RepeatRule,
-        val reminderMinutes: Int? = null,
+        val reminders: List<Int> = emptyList(),
         val point: Boolean = false,
+        val endReminder: Int? = null,
     )
     /** [plan] is the position of the block in [plans]. */
     data class CompletionItem(val plan: Int, val date: LocalDate)
@@ -129,7 +130,8 @@ object FullBackup {
                         is RepeatRule.Weekly -> "Weekly"
                     },
                     "days" to ((it.repeat as? RepeatRule.Weekly)?.days.orEmpty().map { day -> day.name }),
-                    "reminderMinutes" to it.reminderMinutes,
+                    "reminders" to it.reminders,
+                    "endReminder" to it.endReminder,
                     "point" to it.point,
                 )
             },
@@ -210,7 +212,10 @@ object FullBackup {
                         "Weekly" -> RepeatRule.Weekly(days)
                         else -> RepeatRule.Once
                     },
-                    reminderMinutes = it.int("reminderMinutes")?.takeIf { minutes -> minutes >= 0 },
+                    // Older backups held a single reminder under another name.
+                    reminders = ((it["reminders"] as? List<*>)?.mapNotNull { n -> (n as? Number)?.toInt() }
+                        ?: listOfNotNull(it.int("reminderMinutes"))).filter { n -> n >= 0 },
+                    endReminder = it.int("endReminder")?.takeIf { n -> n > 0 },
                     point = it["point"] == true,
                 )
             },
@@ -273,8 +278,8 @@ class BuildBackupUseCase @Inject constructor(
             plans = plans.map {
                 BackupData.PlanItem(
                     categoryNames[it.categoryId].orEmpty(), projectNames[it.projectId].orEmpty(),
-                    it.note, it.description, it.start, it.end, it.startDate, it.repeat, it.reminderMinutes,
-                    it.point,
+                    it.note, it.description, it.start, it.end, it.startDate, it.repeat, it.reminders,
+                    it.point, it.endReminder,
                 )
             },
             completions = completions.mapNotNull { completion ->
@@ -385,7 +390,7 @@ class RestoreBackupUseCase @Inject constructor(
         val wanted = data.plans.map {
             PlanBlock(
                 0, categoryId(it.category), projectId(it.category, it.project), it.note,
-                it.start, it.end, it.startDate, it.repeat, it.description, it.reminderMinutes, it.point,
+                it.start, it.end, it.startDate, it.repeat, it.description, it.reminders, it.point, it.endReminder,
             )
         }
         wanted.forEach { block ->

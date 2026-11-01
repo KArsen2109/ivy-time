@@ -30,8 +30,9 @@ class SavePlanUseCase @Inject constructor(
         startDate: LocalDate,
         repeat: RepeatRule,
         description: String = "",
-        reminderMinutes: Int? = null,
+        reminders: List<Int> = emptyList(),
         point: Boolean = false,
+        endReminder: Int? = null,
     ): Either<TimeError, Unit> {
         if (!point && start == end) return TimeError.NonPositiveDuration.left()
         if (repeat is RepeatRule.Weekly && repeat.days.isEmpty()) {
@@ -40,7 +41,9 @@ class SavePlanUseCase @Inject constructor(
         repository.save(
             PlanBlock(
                 id, categoryId, projectId, note.trim(), start, if (point) start else end, startDate, repeat,
-                description.trim(), reminderMinutes?.takeIf { it >= 0 }, point,
+                description.trim(),
+                reminders.filter { it in 0..MAX_REMINDER_MINUTES }.distinct().sorted(), point,
+                endReminder?.takeIf { !point && it in 1..MAX_REMINDER_MINUTES },
             )
         )
         return Unit.right()
