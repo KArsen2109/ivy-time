@@ -1,5 +1,8 @@
 package com.zham.app.more
 
+import com.zham.domain.usecase.ExportPeriod
+import com.zham.domain.usecase.ExportKind
+import com.zham.domain.usecase.CsvExports
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -72,6 +75,7 @@ class MoreViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val goalRepository: GoalRepository,
     private val noteRepository: com.zham.domain.model.NoteRepository,
+    private val planRepository: com.zham.domain.model.PlanRepository,
     private val buildBackup: BuildBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
     private val reminderScheduler: com.zham.app.reminders.ReminderScheduler,
@@ -142,12 +146,28 @@ class MoreViewModel @Inject constructor(
         }
     }
 
-    /** Builds the CSV the screen then writes to the file the user picked. */
-    suspend fun buildCsv(): String {
+    /**
+     * Builds the CSV the screen then writes to the file the user picked. The text starts with a byte
+     * order mark, which is what makes Excel read Armenian (and any other non-Latin) text correctly.
+     */
+    suspend fun buildCsv(kind: ExportKind, period: ExportPeriod): String {
+        val zone = clock.zone
+        val now = clock.instant()
+        val categoryList = categoryRepository.observeCategories().first()
+        val projectList = projectRepository.observeProjects().first()
+        val categories = categoryList.associateBy { it.id }
+        val projects = projectList.associateBy { it.id }
         val entries = timeRepository.observeEntries().first()
-        val categories = categoryRepository.observeCategories().first().associateBy { it.id }
-        val projects = projectRepository.observeProjects().first().associateBy { it.id }
-        return Csv.export(entries, categories, projects)
+        val body = when (kind) {
+            ExportKind.Records -> CsvExports.records(entries, categories, projects, period, zone, now)
+            ExportKind.PlannedBlocks ->
+                CsvExports.plannedBlocks(planRepository.observePlans().first(), categories, projects, period)
+            ExportKind.Notes ->
+                CsvExports.notes(noteRepository.observeNotes().first(), categories, projects, period, zone)
+            ExportKind.ProjectsAndCategories ->
+                CsvExports.projectsAndCategories(categoryList, projectList, entries, now)
+        }
+        return "\uFEFF" + body
     }
 
     /** Everything the app holds, as the text of the full backup file. */

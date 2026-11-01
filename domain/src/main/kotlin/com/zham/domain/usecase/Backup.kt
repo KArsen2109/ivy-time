@@ -62,7 +62,7 @@ object Csv {
         }
         .toList()
 
-    private fun escape(value: String): String =
+    internal fun escape(value: String): String =
         if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r')) {
             "\"" + value.replace("\"", "\"\"") + "\""
         } else {

@@ -1,5 +1,9 @@
 package com.zham.app.more
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.verticalScroll
+import com.zham.domain.usecase.ExportPeriod
+import com.zham.domain.usecase.ExportKind
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,12 +72,17 @@ fun MoreScreen(
         }
     }
 
+    // What the export sheet asked for, kept until the user has chosen where to save the file.
+    var pendingExport by remember { mutableStateOf<Pair<ExportKind, ExportPeriod>?>(null) }
+    var exportSheet by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        val request = pendingExport
+        pendingExport = null
+        if (uri == null || request == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val written = writeText(context, uri) { viewModel.buildCsv() }
+            val written = writeText(context, uri) { viewModel.buildCsv(request.first, request.second) }
             viewModel.onEvent(MoreEvent.ExportDone(written))
         }
     }
@@ -100,11 +109,22 @@ fun MoreScreen(
         onOpenGoals = onOpenGoals,
         onOpenNotes = onOpenNotes,
         onExportFull = { fullLauncher.launch("zham-backup.json") },
-        onExport = { exportLauncher.launch("zham-records.csv") },
+        onExport = { exportSheet = true },
         // A backup may be offered with any file type, so none is filtered out.
         onImport = { importLauncher.launch(arrayOf("*/*")) },
         modifier = modifier,
     )
+
+    if (exportSheet) {
+        ExportSheet(
+            onDismiss = { exportSheet = false },
+            onExport = { kind, period ->
+                exportSheet = false
+                pendingExport = kind to period
+                exportLauncher.launch(csvFileName(kind, period))
+            },
+        )
+    }
 }
 
 @Composable
@@ -247,8 +267,8 @@ fun MoreUi(
                     horizontalPadding = 0.dp,
                 )
                 SettingRow(
-                    title = "Export records to CSV",
-                    subtitle = "${state.recordCount} records, for spreadsheets",
+                    title = "Export to CSV",
+                    subtitle = "Choose what and which dates, for spreadsheets",
                     onClick = onExport,
                     horizontalPadding = 0.dp,
                 )
@@ -410,6 +430,126 @@ private fun ReminderSettings(state: MoreState, onEvent: (MoreEvent) -> Unit) {
             subtitle = "Arrives in about 20 seconds",
             onClick = { onEvent(MoreEvent.TestReminder) },
             horizontalPadding = 0.dp,
+        )
+    }
+}
+
+private fun csvFileName(kind: ExportKind, period: ExportPeriod): String {
+    val what = when (kind) {
+        ExportKind.Records -> "records"
+        ExportKind.PlannedBlocks -> "planned-blocks"
+        ExportKind.Notes -> "notes"
+        ExportKind.ProjectsAndCategories -> "projects"
+    }
+    val dates = if (period.from != null && period.to != null) "-${period.from}-${period.to}" else ""
+    return "zham-$what$dates.csv"
+}
+
+private enum class PeriodChoice(val label: String) {
+    All("All time"), Last7("Last 7 days"), ThisMonth("This month"), LastMonth("Last month"),
+    ThisYear("This year"), Custom("Pick dates"),
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun ExportSheet(onDismiss: () -> Unit, onExport: (ExportKind, ExportPeriod) -> Unit) {
+    var kind by remember { mutableStateOf(ExportKind.Records) }
+    var choice by remember { mutableStateOf(PeriodChoice.All) }
+    val today = remember { java.time.LocalDate.now() }
+    var from by remember { mutableStateOf(today.minusDays(29)) }
+    var to by remember { mutableStateOf(today) }
+    var picking by remember { mutableStateOf<String?>(null) }
+    val formatter = remember { java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH) }
+
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = Spacing.Gutter)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("Export to CSV", style = MaterialTheme.typography.titleLarge)
+            Text("What", style = MaterialTheme.typography.labelMedium, color = ZhamTheme.extra.slate)
+            Segmented(
+                options = listOf(ExportKind.Records, ExportKind.PlannedBlocks),
+                selected = kind,
+                label = { if (it == ExportKind.Records) "Time records" else "Planned blocks" },
+                onSelect = { kind = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Segmented(
+                options = listOf(ExportKind.Notes, ExportKind.ProjectsAndCategories),
+                selected = kind,
+                label = { if (it == ExportKind.Notes) "Notes" else "Projects" },
+                onSelect = { kind = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (kind != ExportKind.ProjectsAndCategories) {
+                Text("Dates", style = MaterialTheme.typography.labelMedium, color = ZhamTheme.extra.slate)
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    PeriodChoice.entries.forEach { option ->
+                        com.zham.design.system.ChoiceChip(
+                            label = option.label,
+                            selected = choice == option,
+                            color = MaterialTheme.colorScheme.primary,
+                            onClick = { choice = option },
+                        )
+                    }
+                }
+                if (choice == PeriodChoice.Custom) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        com.zham.design.system.FieldButton(
+                            label = "From", value = from.format(formatter),
+                            onClick = { picking = "from" }, modifier = Modifier.weight(1f),
+                        )
+                        com.zham.design.system.FieldButton(
+                            label = "To", value = to.format(formatter),
+                            onClick = { picking = "to" }, modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+            Text(
+                "Opens in Excel and Google Sheets, including Armenian text.",
+                style = MaterialTheme.typography.bodySmall,
+                color = ZhamTheme.extra.slate,
+            )
+            com.zham.design.system.PrimaryButton(
+                text = "Export",
+                onClick = {
+                    val period = when (choice) {
+                        PeriodChoice.All -> ExportPeriod()
+                        PeriodChoice.Last7 -> ExportPeriod(today.minusDays(6), today)
+                        PeriodChoice.ThisMonth -> ExportPeriod(today.withDayOfMonth(1), today)
+                        PeriodChoice.LastMonth -> today.minusMonths(1).let {
+                            ExportPeriod(it.withDayOfMonth(1), it.withDayOfMonth(it.lengthOfMonth()))
+                        }
+                        PeriodChoice.ThisYear -> ExportPeriod(today.withDayOfYear(1), today)
+                        PeriodChoice.Custom -> ExportPeriod(minOf(from, to), maxOf(from, to))
+                    }
+                    onExport(kind, period)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+
+    picking?.let { which ->
+        com.zham.app.ui.CalendarSheet(
+            title = if (which == "from") "First day" else "Last day",
+            selected = if (which == "from") from else to,
+            today = today,
+            marks = com.zham.app.ui.CalendarMarks(emptySet(), emptyList()),
+            weekStart = DayOfWeek.MONDAY,
+            onPick = {
+                if (which == "from") from = it else to = it
+                picking = null
+            },
+            onDismiss = { picking = null },
         )
     }
 }
