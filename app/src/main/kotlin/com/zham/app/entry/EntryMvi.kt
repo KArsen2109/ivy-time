@@ -1,5 +1,6 @@
 package com.zham.app.entry
 
+import com.zham.domain.usecase.titleSuggestions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -59,6 +60,8 @@ data class EntryState(
     val canSave: Boolean,
     /** True when another record already covers part of this time. */
     val overlapsOther: Boolean,
+    /** Titles used before in this category or project. */
+    val titleSuggestions: ImmutableList<String>,
 )
 
 sealed interface EntryEvent {
@@ -195,6 +198,9 @@ class EntryViewModel @Inject constructor(
             error = problem ?: error.value,
             canSave = problem == null,
             overlapsOther = overlapsOther(entries),
+            titleSuggestions = remember(entries, plans, categoryId.value, projectId.value, note.value) {
+                titleSuggestions(entries, plans, categoryId.value, projectId.value, note.value).toImmutableList()
+            },
         )
     }
 

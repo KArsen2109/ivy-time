@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import com.zham.domain.usecase.titleSuggestions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,8 @@ data class PlanEditorState(
     val reminderMinutes: Int?,
     /** Other blocks at the same time as this one, one line each; empty when nothing overlaps. */
     val conflicts: ImmutableList<String>,
+    /** Titles used before in this category or project. */
+    val titleSuggestions: ImmutableList<String>,
 )
 
 sealed interface PlanEditorEvent {
@@ -215,6 +218,9 @@ class PlanEditorViewModel @Inject constructor(
             error = error.value,
             reminderMinutes = reminder.value,
             conflicts = conflicts,
+            titleSuggestions = remember(entries, plans, categoryId.value, projectId.value, note.value) {
+                titleSuggestions(entries, plans, categoryId.value, projectId.value, note.value).toImmutableList()
+            },
             movedToNextDay = effectiveDate() != notBeforeToday(date.value),
         )
     }

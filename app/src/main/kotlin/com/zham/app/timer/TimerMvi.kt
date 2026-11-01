@@ -1,5 +1,6 @@
 package com.zham.app.timer
 
+import com.zham.domain.usecase.titleSuggestions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.collectAsState
@@ -50,6 +51,7 @@ data class TimerState(
     val projects: ImmutableList<PickerItem>,
     val selectedProjectId: Long?,
     val categoryName: String,
+    val titleSuggestions: ImmutableList<String>,
     val todayLabel: String,
     val todayTotal: String,
     val records: ImmutableList<RecordRow>,
@@ -157,6 +159,13 @@ class TimerViewModel @Inject constructor(
             },
             categoryName = (running?.let { runningCategory } ?: selectedCategory)?.name
                 ?: "Nothing selected",
+            titleSuggestions = remember(entries, selected, pickedProject.value, note.value) {
+                titleSuggestions(
+                    entries, emptyList(), selected,
+                    pickedProject.value?.takeIf { projectsById[it]?.categoryId == selected },
+                    note.value,
+                ).toImmutableList()
+            },
             todayLabel = formatters.weekdayAndDate(today),
             todayTotal = totalIn(todayEntries, dayStart, dayEnd, now).formatShort(),
             records = todayEntries.sortedByDescending { it.start }.map { entry ->

@@ -196,3 +196,23 @@ fun rememberDeleteConfirm(title: String, message: String, onConfirm: () -> Unit)
     }
     return { asking = true }
 }
+
+/** Titles used before, as chips under the title field; one tap fills it, typing is never blocked. */
+@Composable
+fun TitleSuggestions(titles: List<String>, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
+    if (titles.isEmpty()) return
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.Gutter),
+    ) {
+        items(titles, key = { it }) { title ->
+            ChoiceChip(
+                label = title,
+                selected = false,
+                color = MaterialTheme.colorScheme.primary,
+                onClick = { onPick(title) },
+            )
+        }
+    }
+}

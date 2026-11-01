@@ -1,5 +1,6 @@
 package com.zham.app.entry
 
+import com.zham.app.ui.TitleSuggestions
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -122,6 +123,7 @@ fun EntryUi(
             shape = MaterialTheme.shapes.medium,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Gutter, vertical = 12.dp),
         )
+        TitleSuggestions(state.titleSuggestions, onPick = { onEvent(EntryEvent.SetNote(it)) })
         OutlinedTextField(
             value = state.description,
             onValueChange = { onEvent(EntryEvent.SetDescription(it)) },

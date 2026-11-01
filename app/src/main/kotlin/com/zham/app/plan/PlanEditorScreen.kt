@@ -1,5 +1,6 @@
 package com.zham.app.plan
 
+import com.zham.app.ui.TitleSuggestions
 import java.util.Locale
 import java.time.format.TextStyle
 import androidx.compose.ui.semantics.semantics
@@ -275,6 +276,7 @@ fun PlanEditorUi(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.Gutter, vertical = 16.dp),
         )
+        TitleSuggestions(state.titleSuggestions, onPick = { onEvent(PlanEditorEvent.SetNote(it)) })
         OutlinedTextField(
             value = state.description,
             onValueChange = { onEvent(PlanEditorEvent.SetDescription(it)) },

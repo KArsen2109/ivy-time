@@ -1,5 +1,6 @@
 package com.zham.app.timer
 
+import com.zham.app.ui.TitleSuggestions
 import androidx.compose.ui.text.style.TextOverflow
 import com.zham.app.ui.rememberDeleteConfirm
 import androidx.compose.foundation.layout.Arrangement
@@ -157,6 +158,8 @@ fun TimerUi(
                         .fillMaxWidth()
                         .padding(horizontal = Spacing.Gutter, vertical = 14.dp),
                 )
+                TitleSuggestions(state.titleSuggestions, onPick = { onEvent(TimerEvent.SetNote(it)) })
+                Spacer(Modifier.height(10.dp))
             } else {
                 Spacer(Modifier.height(24.dp))
             }
