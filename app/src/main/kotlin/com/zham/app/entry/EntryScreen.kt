@@ -40,7 +40,7 @@ import com.zham.design.system.FieldButton
 import com.zham.design.system.PrimaryButton
 import com.zham.design.system.SectionLabel
 import com.zham.design.system.Spacing
-import com.zham.design.system.TimeKeypadDialog
+import com.zham.design.system.TimeDialog
 import com.zham.design.system.ZhamTheme
 import com.zham.app.ui.CalendarSheet
 import com.zham.app.ui.PickerRow
@@ -229,10 +229,11 @@ fun EntryUi(
         )
     }
     if (startPickerVisible) {
-        TimeKeypadDialog(
+        TimeDialog(
             title = "Start time",
             initial = state.start,
             now = state.now,
+            is24Hour = state.use24Hours,
             onDismiss = { startPickerVisible = false },
             onSet = {
                 onEvent(EntryEvent.SetStart(it))
@@ -243,10 +244,11 @@ fun EntryUi(
         )
     }
     if (endPickerVisible) {
-        TimeKeypadDialog(
+        TimeDialog(
             title = "End time",
             initial = state.end,
             now = state.now,
+            is24Hour = state.use24Hours,
             onDismiss = { endPickerVisible = false },
             onSet = {
                 onEvent(EntryEvent.SetEnd(it))

@@ -64,7 +64,7 @@ import com.zham.design.system.PrimaryButton
 import com.zham.design.system.SectionLabel
 import com.zham.design.system.Segmented
 import com.zham.design.system.Spacing
-import com.zham.design.system.TimeKeypadDialog
+import com.zham.design.system.TimeDialog
 import com.zham.design.system.ZhamTheme
 import com.zham.app.ui.CalendarSheet
 import com.zham.app.ui.PickerRow
@@ -459,10 +459,11 @@ fun PlanEditorUi(
         )
     }
     if (startPicker) {
-        TimeKeypadDialog(
+        TimeDialog(
             title = "Block starts",
             initial = state.start,
             now = state.now,
+            is24Hour = state.use24Hours,
             onDismiss = { startPicker = false },
             onSet = {
                 onEvent(PlanEditorEvent.SetStart(it))
@@ -471,10 +472,11 @@ fun PlanEditorUi(
         )
     }
     if (endPicker) {
-        TimeKeypadDialog(
+        TimeDialog(
             title = "Block ends",
             initial = state.end,
             now = state.now,
+            is24Hour = state.use24Hours,
             onDismiss = { endPicker = false },
             onSet = {
                 onEvent(PlanEditorEvent.SetEnd(it))
