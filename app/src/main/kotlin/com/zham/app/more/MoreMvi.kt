@@ -76,6 +76,10 @@ class MoreViewModel @Inject constructor(
     private val goalRepository: GoalRepository,
     private val noteRepository: com.zham.domain.model.NoteRepository,
     private val planRepository: com.zham.domain.model.PlanRepository,
+    private val transactionRepository: com.zham.domain.model.TransactionRepository,
+    private val accountRepository: com.zham.domain.model.AccountRepository,
+    private val moneyCategoryRepository: com.zham.domain.model.MoneyCategoryRepository,
+    private val loanRepository: com.zham.domain.model.LoanRepository,
     private val buildBackup: BuildBackupUseCase,
     private val restoreBackup: RestoreBackupUseCase,
     private val reminderScheduler: com.zham.app.reminders.ReminderScheduler,
@@ -166,6 +170,13 @@ class MoreViewModel @Inject constructor(
                 CsvExports.notes(noteRepository.observeNotes().first(), categories, projects, period, zone)
             ExportKind.ProjectsAndCategories ->
                 CsvExports.projectsAndCategories(categoryList, projectList, entries, now)
+            ExportKind.Transactions -> CsvExports.transactions(
+                transactionRepository.observeTransactions().first(),
+                accountRepository.observeAccounts().first(),
+                moneyCategoryRepository.observeCategories().first(),
+                projects, period, zone,
+            )
+            ExportKind.Loans -> CsvExports.loans(loanRepository.observeLoans().first(), accountRepository.observeAccounts().first())
         }
         return "\uFEFF" + body
     }
@@ -190,6 +201,7 @@ class MoreViewModel @Inject constructor(
                 if (result.plans > 0) append(", ${result.plans} blocks")
                 if (result.goals > 0) append(", ${result.goals} goals")
                 if (result.notes > 0) append(", ${result.notes} notes")
+                if (result.money > 0) append(", ${result.money} money items")
                 append(".")
                 if (result.skipped > 0) append(" ${result.skipped} were already there.")
             }

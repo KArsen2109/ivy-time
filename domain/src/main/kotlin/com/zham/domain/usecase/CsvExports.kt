@@ -1,6 +1,11 @@
 package com.zham.domain.usecase
 
+import com.zham.domain.model.Account
 import com.zham.domain.model.Category
+import com.zham.domain.model.Loan
+import com.zham.domain.model.MoneyCategory
+import com.zham.domain.model.Transaction
+import com.zham.domain.model.TxType
 import com.zham.domain.model.Note
 import com.zham.domain.model.PlanBlock
 import com.zham.domain.model.Project
@@ -13,7 +18,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** What a CSV export holds. */
-enum class ExportKind { Records, PlannedBlocks, Notes, ProjectsAndCategories }
+enum class ExportKind { Records, PlannedBlocks, Notes, ProjectsAndCategories, Transactions, Loans }
 
 /** The days an export covers, both ends included; null on a side leaves that side open. */
 data class ExportPeriod(val from: LocalDate? = null, val to: LocalDate? = null) {
@@ -143,6 +148,65 @@ object CsvExports {
                 row(
                     "project", safe(it.name), safe(names[it.categoryId].orEmpty()),
                     if (it.archived) "yes" else "", (byProject[it.id] ?: Duration.ZERO).toMinutes().toString(),
+                )
+            )
+        }
+    }
+
+    private fun amount(minor: Long): String = formatMinor(minor).replace(" ", "")
+
+    fun transactions(
+        transactions: List<Transaction>,
+        accounts: List<Account>,
+        categories: List<MoneyCategory>,
+        projects: Map<Long, Project>,
+        period: ExportPeriod,
+        zone: ZoneId,
+    ): String = buildString {
+        appendLine(row("date", "time", "type", "amount", "currency", "account", "to account", "arrives", "category", "title", "description", "project"))
+        val accountById = accounts.associateBy { it.id }
+        val categoryById = categories.associateBy { it.id }
+        transactions.filter { period.contains(it.time.atZone(zone).toLocalDate()) }.sortedBy { it.time }.forEach { tx ->
+            val local = tx.time.atZone(zone)
+            val from = accountById[tx.accountId]
+            val to = accountById[tx.toAccountId]
+            appendLine(
+                row(
+                    local.toLocalDate().format(DATE),
+                    local.toLocalTime().format(TIME),
+                    tx.type.name.lowercase(),
+                    // Spending is negative so a column sum in a spreadsheet is the real change.
+                    (if (tx.type == TxType.Expense) "-" else "") + amount(tx.amountMinor),
+                    from?.currency.orEmpty(),
+                    safe(from?.name.orEmpty()),
+                    safe(to?.name.orEmpty()),
+                    tx.toAmountMinor?.let(::amount).orEmpty(),
+                    safe(categoryById[tx.categoryId]?.name.orEmpty()),
+                    safe(tx.title),
+                    safe(tx.description),
+                    safe(projects[tx.projectId]?.name.orEmpty()),
+                )
+            )
+        }
+    }
+
+    fun loans(loans: List<Loan>, accounts: List<Account>): String = buildString {
+        appendLine(
+            row(
+                "name", "currency", "owed at start", "yearly rate %", "rate kind", "months", "repayment",
+                "first payment", "last payment", "total to pay", "interest", "payments made", "paid", "left to pay", "next due",
+            )
+        )
+        loans.forEach { loan ->
+            val s = loanSummary(loan)
+            appendLine(
+                row(
+                    safe(loan.name), loan.currency, amount(loan.principalMinor),
+                    loan.annualRatePercent.toString().removeSuffix(".0"), loan.rateKind.name.lowercase(),
+                    loan.termMonths.toString(),
+                    if (loan.type == com.zham.domain.model.AmortizationType.Annuity) "equal payments" else "falling payments",
+                    amount(s.firstPayment), amount(s.lastPayment), amount(s.totalPayable), amount(s.totalInterest),
+                    s.paidCount.toString(), amount(s.paidAmount), amount(s.remainingAmount), s.nextDue?.format(DATE).orEmpty(),
                 )
             )
         }

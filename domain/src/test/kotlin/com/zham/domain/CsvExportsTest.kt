@@ -46,3 +46,30 @@ class CsvExportsTest {
         csv.contains("• milk") shouldBe true
     }
 }
+
+class CsvMoneyExportsTest {
+    private val zone = ZoneId.of("Asia/Yerevan")
+    private val cash = com.zham.domain.model.Account(1, "Cash", "AMD", 0, "i", 0, 0.0)
+    private val food = com.zham.domain.model.MoneyCategory(1, "Food", 0, "i", 0.0)
+
+    @Test
+    fun `spending is negative and the readable columns are filled`() {
+        val tx = com.zham.domain.model.Transaction(
+            1, com.zham.domain.model.TxType.Expense, 30_050, 1, null, null, 1, "Bus, line 5", "", Instant.parse("2026-01-10T06:00:00Z"), null,
+        )
+        val csv = CsvExports.transactions(listOf(tx), listOf(cash), listOf(food), emptyMap(), ExportPeriod(), zone)
+        csv.lines()[1] shouldBe "2026-01-10,10:00,expense,-300.50,AMD,Cash,,,Food,\"Bus, line 5\",,"
+    }
+
+    @Test
+    fun `a loan row carries the worked-out figures`() {
+        val loan = com.zham.domain.model.Loan(
+            1, "Car", "AMD", 30_000_000, 24.0, com.zham.domain.model.RateKind.Nominal, 36,
+            com.zham.domain.model.AmortizationType.Annuity, LocalDate.of(2026, 1, 31), 2, null, null,
+        )
+        val row = CsvExports.loans(listOf(loan), emptyList()).lines()[1].split(",")
+        row[0] shouldBe "Car"
+        row[7] shouldBe "11769.86"
+        row[11] shouldBe "2"
+    }
+}

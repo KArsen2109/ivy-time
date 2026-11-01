@@ -44,6 +44,9 @@ import kotlin.test.Test
 private val UTC = ZoneOffset.UTC
 
 internal class Mem {
+    val stores = Stores()
+    fun finance() = com.zham.domain.usecase.FinanceBackupBuilder(stores.accountRepo, stores.moneyCategoryRepo, stores.txRepo, stores.presetRepo, stores.loanRepo)
+    fun restorer() = com.zham.domain.usecase.FinanceRestorer(stores.accountRepo, stores.moneyCategoryRepo, stores.txRepo, stores.presetRepo, stores.loanRepo)
     val entries = mutableListOf<TimeEntry>()
     val categories = mutableListOf<Category>()
     val projects = mutableListOf<Project>()
@@ -203,11 +206,11 @@ class FixesTest {
         source.note.save(com.zham.domain.model.Note(0, "Plan", "- a\n[x] b", workId, null, Instant.parse("2026-01-01T10:00:00Z"), Instant.parse("2026-01-02T10:00:00Z"), true))
         source.goal.save(Goal(0, "Deep work", workId, Duration.ofHours(10), GoalPeriod.Week, GoalType.AtLeast))
 
-        val text = FullBackup.encode(BuildBackupUseCase(source.time, source.category, source.project, source.plan, source.goal, source.note)())
+        val text = FullBackup.encode(BuildBackupUseCase(source.time, source.category, source.project, source.plan, source.goal, source.note, source.finance())())
         val decoded = FullBackup.decode(text)!!
 
         val target = Mem()
-        val restore = RestoreBackupUseCase(target.time, target.category, target.project, target.plan, target.goal, target.note)
+        val restore = RestoreBackupUseCase(target.time, target.category, target.project, target.plan, target.goal, target.note, target.restorer())
         val first = restore(decoded) { 0xFF000000.toInt() }
         first.entries shouldBe 1
         first.plans shouldBe 1
@@ -250,7 +253,7 @@ class FixesTest {
         val mem = Mem()
         val csv = "start,end,category,project,note,description\n" +
             "2026-01-01T10:00:00Z,2026-01-01T11:00:00Z,Work,,x,\"d1\nd2\"\n"
-        val restore = RestoreBackupUseCase(mem.time, mem.category, mem.project, mem.plan, mem.goal, mem.note)
+        val restore = RestoreBackupUseCase(mem.time, mem.category, mem.project, mem.plan, mem.goal, mem.note, mem.restorer())
         restore(FullBackup.fromCsv(csv)) { 0 }.entries shouldBe 1
         val again = restore(FullBackup.fromCsv(csv)) { 0 }
         again.entries shouldBe 0

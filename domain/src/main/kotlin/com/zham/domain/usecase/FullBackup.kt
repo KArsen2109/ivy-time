@@ -36,6 +36,7 @@ data class BackupData(
     val completions: List<CompletionItem> = emptyList(),
     val goals: List<GoalItem> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
+    val finance: FinanceData = FinanceData(),
 ) {
     data class CategoryItem(val name: String, val color: Int, val icon: String, val order: Double)
     data class ProjectItem(
@@ -91,7 +92,7 @@ data class BackupData(
 
     val isEmpty: Boolean
         get() = categories.isEmpty() && projects.isEmpty() && entries.isEmpty() &&
-            plans.isEmpty() && goals.isEmpty() && notes.isEmpty()
+            plans.isEmpty() && goals.isEmpty() && notes.isEmpty() && finance.isEmpty
 }
 
 object FullBackup {
@@ -160,6 +161,7 @@ object FullBackup {
                     "matchTitle" to it.matchTitle,
                 )
             },
+            *FinanceCodec.encode(data.finance).toList().toTypedArray(),
             "notes" to data.notes.map {
                 mapOf(
                     "title" to it.title,
@@ -264,6 +266,7 @@ object FullBackup {
                     matchTitle = it["matchTitle"] == true,
                 )
             },
+            finance = FinanceCodec.decode(root),
             notes = items("notes").mapNotNull {
                 val created = runCatching { Instant.parse(it.str("created")) }.getOrNull() ?: return@mapNotNull null
                 BackupData.NoteItem(
@@ -288,6 +291,7 @@ class BuildBackupUseCase @Inject constructor(
     private val planRepository: PlanRepository,
     private val goalRepository: GoalRepository,
     private val noteRepository: NoteRepository,
+    private val financeBackup: FinanceBackupBuilder,
 ) {
     suspend operator fun invoke(): BackupData {
         val categories = categoryRepository.observeCategories().firstOrNull().orEmpty()
@@ -323,6 +327,7 @@ class BuildBackupUseCase @Inject constructor(
             completions = completions.mapNotNull { completion ->
                 planIndex[completion.planId]?.let { BackupData.CompletionItem(it, completion.date) }
             },
+            finance = financeBackup.build(categoryNames, projectNames),
             notes = notes.map {
                 BackupData.NoteItem(
                     it.title, it.body, categoryNames[it.categoryId].orEmpty(),
@@ -339,7 +344,7 @@ class BuildBackupUseCase @Inject constructor(
     }
 }
 
-data class RestoreResult(val entries: Int, val plans: Int, val goals: Int, val skipped: Int, val notes: Int = 0)
+data class RestoreResult(val entries: Int, val plans: Int, val goals: Int, val skipped: Int, val notes: Int = 0, val money: Int = 0)
 
 /**
  * Merges a [BackupData] into what is already there. Things are matched by name or by their
@@ -352,6 +357,7 @@ class RestoreBackupUseCase @Inject constructor(
     private val planRepository: PlanRepository,
     private val goalRepository: GoalRepository,
     private val noteRepository: NoteRepository,
+    private val financeRestorer: FinanceRestorer,
 ) {
     suspend operator fun invoke(data: BackupData, defaultColor: (Int) -> Int): RestoreResult {
         // Categories first: everything else points at them by name.
@@ -485,6 +491,12 @@ class RestoreBackupUseCase @Inject constructor(
             notesAdded++
         }
 
-        return RestoreResult(entriesAdded, plansAdded, goalsAdded, skipped, notesAdded)
+        val moneyAdded = financeRestorer.restore(
+            data.finance,
+            timeCategoryId = { categoryId(it) },
+            projectId = { name -> projects.firstOrNull { it.name.equals(name, true) }?.id },
+        )
+
+        return RestoreResult(entriesAdded, plansAdded, goalsAdded, skipped, notesAdded, moneyAdded)
     }
 }

@@ -282,7 +282,7 @@ fun MoreUi(
             ZhamCard(Modifier.padding(horizontal = Spacing.Gutter)) {
                 SettingRow(
                     title = "Back up everything",
-                    subtitle = "Records, plans, goals, categories and projects in one file",
+                    subtitle = "Everything: records, plans, goals, notes, money and loans in one file",
                     onClick = onExportFull,
                     horizontalPadding = 0.dp,
                 )
@@ -460,6 +460,8 @@ private fun csvFileName(kind: ExportKind, period: ExportPeriod): String {
         ExportKind.PlannedBlocks -> "planned-blocks"
         ExportKind.Notes -> "notes"
         ExportKind.ProjectsAndCategories -> "projects"
+        ExportKind.Transactions -> "money"
+        ExportKind.Loans -> "loans"
     }
     val dates = if (period.from != null && period.to != null) "-${period.from}-${period.to}" else ""
     return "zham-$what$dates.csv"
@@ -506,7 +508,14 @@ private fun ExportSheet(onDismiss: () -> Unit, onExport: (ExportKind, ExportPeri
                 onSelect = { kind = it },
                 modifier = Modifier.fillMaxWidth(),
             )
-            if (kind != ExportKind.ProjectsAndCategories) {
+            Segmented(
+                options = listOf(ExportKind.Transactions, ExportKind.Loans),
+                selected = kind,
+                label = { if (it == ExportKind.Transactions) "Money entries" else "Loans" },
+                onSelect = { kind = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (kind != ExportKind.ProjectsAndCategories && kind != ExportKind.Loans) {
                 Text("Dates", style = MaterialTheme.typography.labelMedium, color = ZhamTheme.extra.slate)
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

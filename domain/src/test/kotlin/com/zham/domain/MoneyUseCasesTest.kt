@@ -20,7 +20,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.test.Test
 
-private class Stores {
+internal class Stores {
     val presets = mutableListOf<Preset>()
     val accounts = mutableListOf<Account>()
     val txs = mutableListOf<com.zham.domain.model.Transaction>()
@@ -43,6 +43,12 @@ private class Stores {
         override suspend fun findById(id: Long) = txs.firstOrNull { it.id == id }
         override suspend fun save(transaction: com.zham.domain.model.Transaction): Long { txs += transaction.copy(id = next); return next++ }
         override suspend fun delete(id: Long) { txs.removeAll { it.id == id } }
+    }
+    val moneyCategories = mutableListOf<com.zham.domain.model.MoneyCategory>()
+    val moneyCategoryRepo = object : com.zham.domain.model.MoneyCategoryRepository {
+        override fun observeCategories(): Flow<List<com.zham.domain.model.MoneyCategory>> = flow { emit(moneyCategories.toList()) }
+        override suspend fun save(category: com.zham.domain.model.MoneyCategory): Long { moneyCategories += category.copy(id = next); return next++ }
+        override suspend fun delete(id: Long) { moneyCategories.removeAll { it.id == id } }
     }
     val loanRepo = object : com.zham.domain.model.LoanRepository {
         override fun observeLoans(): Flow<List<Loan>> = flow { emit(loans.toList()) }
@@ -122,5 +128,34 @@ class MoneyUseCasesTest {
         pay.pay(loanId).isRight() shouldBe true
         pay.pay(loanId).isLeft() shouldBe true // the schedule is finished
         s.txs.size shouldBe 0
+    }
+
+    @Test
+    fun `money survives a backup round trip and a second restore adds nothing`() = runTest {
+        val a = Mem()
+        val s = a.stores
+        val cash = s.accountRepo.save(Account(0, "Cash", "AMD", 1, "i", 5_000, 0.0))
+        val card = s.accountRepo.save(Account(0, "Card", "USD", 2, "i", 0, 1.0))
+        val food = s.moneyCategoryRepo.save(com.zham.domain.model.MoneyCategory(0, "Food", 3, "i", 0.0))
+        s.txRepo.save(com.zham.domain.model.Transaction(0, TxType.Expense, 300, cash, null, null, food, "Bus", "d", now, null))
+        s.txRepo.save(com.zham.domain.model.Transaction(0, TxType.Transfer, 100, cash, card, 1, null, "", "", now.plusSeconds(60), null))
+        s.presetRepo.save(Preset(0, PresetKind.Expense, "Bus", "Bus fare", food, null, cash, 300, 0, 0.0))
+        s.loanRepo.save(Loan(0, "Car", "AMD", 30_000_000, 24.0, RateKind.Nominal, 36, AmortizationType.Annuity, LocalDate.of(2026, 2, 1), 3, cash, food))
+
+        val text = com.zham.domain.usecase.FullBackup.encode(
+            com.zham.domain.usecase.BuildBackupUseCase(a.time, a.category, a.project, a.plan, a.goal, a.note, a.finance())()
+        )
+        val decoded = com.zham.domain.usecase.FullBackup.decode(text)!!
+        decoded.finance.transactions.size shouldBe 2
+
+        val b = Mem()
+        val restore = com.zham.domain.usecase.RestoreBackupUseCase(b.time, b.category, b.project, b.plan, b.goal, b.note, b.restorer())
+        restore(decoded) { 0 }.money shouldBe 4 // 2 transactions, 1 preset, 1 loan; accounts and categories are not counted
+        b.stores.accounts.map { it.name } shouldBe listOf("Cash", "Card")
+        b.stores.txs.size shouldBe 2
+        b.stores.txs.first { it.type == TxType.Transfer }.toAccountId shouldBe b.stores.accounts.first { it.name == "Card" }.id
+        b.stores.loans.single().paidCount shouldBe 3
+        restore(decoded) { 0 }.money shouldBe 0
+        b.stores.txs.size shouldBe 2
     }
 }
